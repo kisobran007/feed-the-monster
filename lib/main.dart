@@ -279,6 +279,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   void triggerGameOver() {
     isGameOver = true;
     isPaused = false;
+    monster.showGameOver();
     if (score > bestScore) {
       bestScore = score;
       _saveBestScore();
@@ -460,6 +461,15 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     sprite = idleSprite;
     reactionText.text = 'Catch good food!';
     size = Vector2.all(_idleSize);
+    _layoutReactionText();
+  }
+
+  void showGameOver() {
+    _reactionId += 1;
+    currentState = 'game_over';
+    sprite = sadSprite;
+    reactionText.text = '';
+    size = Vector2.all(_sadSize);
     _layoutReactionText();
   }
 
