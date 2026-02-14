@@ -1,0 +1,11 @@
+PLACEHOLDER: Add the following PNG files here (512x512px, transparent background):
+
+GOOD ITEMS (bright colors):
+- apple.png - Red cartoon apple
+- banana.png - Yellow curved banana
+- cookie.png - Golden cookie with chocolate chips
+- strawberry.png - Red strawberry with seeds
+
+BAD ITEMS (dull colors):
+- bad_shoe.png - Old worn sneaker
+- bad_rock.png - Gray cartoon rock

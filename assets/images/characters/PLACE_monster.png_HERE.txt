@@ -1,0 +1,7 @@
+PLACEHOLDER: Replace this file with monster.png (512x512px, transparent background)
+
+The monster should be:
+- Cute and cartoonish
+- Kid-friendly appearance
+- Centered in the image
+- Can have idle/happy/oops states (optional)
