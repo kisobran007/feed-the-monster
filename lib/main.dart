@@ -217,6 +217,8 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
 
   @override
   Future<void> onLoad() async {
+    size = Vector2(400, 300);
+    
     gameOverText = TextComponent(
       text: 'Game Over!',
       textRenderer: TextPaint(
@@ -276,7 +278,16 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
   @override
   void onTapDown(TapDownEvent event) {
     if (isVisible) {
-      gameRef.restartGame();
+      final localPoint = event.localPosition;
+      // Check if tap is near restart text (y=120, approximate height 50)
+      if (localPoint.y > 95 && localPoint.y < 145) {
+        gameRef.restartGame();
+      }
     }
+  }
+
+  @override
+  bool containsLocalPoint(Vector2 point) {
+    return isVisible;
   }
 }
