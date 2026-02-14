@@ -25,28 +25,44 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   late Monster monster;
   late ScoreDisplay scoreDisplay;
   late GameOverDisplay gameOverDisplay;
+  late RectangleComponent playAreaBackground;
+  late RectangleComponent monsterAreaBackground;
+  late RectangleComponent areaDivider;
   int score = 0;
   bool isGameOver = false;
   double spawnTimer = 0;
   final double spawnInterval = 1.5; // Spawn item every 1.5 seconds
+  static const double monsterAreaRatio = 0.28;
+
+  double get gameplayBottomY => size.y * (1 - monsterAreaRatio);
+  double get monsterAreaTopY => gameplayBottomY;
+  double get monsterAreaHeight => size.y - monsterAreaTopY;
 
   @override
   Future<void> onLoad() async {
-    // Add monster at bottom center
+    playAreaBackground = RectangleComponent(priority: -30);
+    monsterAreaBackground = RectangleComponent(priority: -20);
+    areaDivider = RectangleComponent(priority: -10);
+    add(playAreaBackground);
+    add(monsterAreaBackground);
+    add(areaDivider);
+
+    // Add monster in dedicated bottom area
     monster = Monster()
-      ..position = Vector2(size.x / 2, size.y - 150)
+      ..position = Vector2(size.x / 2, monsterAreaTopY + (monsterAreaHeight * 0.6))
       ..anchor = Anchor.center;
     add(monster);
 
     // Add score display
-    scoreDisplay = ScoreDisplay()..position = Vector2(20, 40);
+    scoreDisplay = ScoreDisplay()..position = Vector2(20, 24);
     add(scoreDisplay);
 
     // Add game over display (hidden initially)
     gameOverDisplay = GameOverDisplay()
-      ..position = Vector2(size.x / 2, size.y / 2)
       ..anchor = Anchor.center;
     add(gameOverDisplay);
+
+    _layoutScene();
   }
 
   @override
@@ -78,7 +94,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       isGood: isGood,
       onTapped: handleItemTap,
     )
-      ..position = Vector2(random.nextDouble() * (size.x - 100) + 50, -50)
+      ..position = Vector2(random.nextDouble() * (size.x - 90) + 45, -50)
       ..anchor = Anchor.center;
 
     add(item);
@@ -124,32 +140,95 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   @override
   Color backgroundColor() => const Color(0xFF2A2A2A);
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    if (!isLoaded) return;
+    _layoutScene();
+  }
+
+  void _layoutScene() {
+    final bottomY = gameplayBottomY;
+    final overlaySize = Vector2(size.x * 0.92, min(420.0, bottomY * 0.8));
+
+    playAreaBackground
+      ..position = Vector2.zero()
+      ..size = Vector2(size.x, bottomY)
+      ..paint = (Paint()..color = const Color(0xFF1E1E1E));
+
+    monsterAreaBackground
+      ..position = Vector2(0, bottomY)
+      ..size = Vector2(size.x, size.y - bottomY)
+      ..paint = (Paint()..color = const Color(0xFF103A2F));
+
+    areaDivider
+      ..position = Vector2(0, bottomY - 2)
+      ..size = Vector2(size.x, 4)
+      ..paint = (Paint()..color = const Color(0x66FFFFFF));
+
+    monster.position = Vector2(size.x / 2, monsterAreaTopY + (monsterAreaHeight * 0.6));
+    scoreDisplay.position = Vector2(20, 24);
+
+    gameOverDisplay
+      ..position = Vector2(size.x / 2, bottomY / 2)
+      ..setDisplaySize(overlaySize);
+  }
 }
 
 // Monster character component
 class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
   String currentState = 'idle';
+  int _reactionId = 0;
+  late TextComponent reactionText;
 
   @override
   Future<void> onLoad() async {
     sprite = await gameRef.loadSprite('characters/monster.png');
-    size = Vector2(120, 120);
+    size = Vector2(130, 130);
+
+    reactionText = TextComponent(
+      text: 'Catch good food!',
+      anchor: Anchor.center,
+      position: Vector2(0, -95),
+      textRenderer: TextPaint(
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+        ),
+      ),
+    );
+    add(reactionText);
   }
 
   void showHappy() {
     currentState = 'happy';
-    // Optional: load happy sprite or animate
-    Future.delayed(Duration(milliseconds: 500), () => showIdle());
+    _reactionId += 1;
+    final currentId = _reactionId;
+    reactionText.text = 'Yummy!';
+    size = Vector2(145, 145);
+    Future.delayed(const Duration(milliseconds: 450), () {
+      if (_reactionId == currentId) showIdle();
+    });
   }
 
   void showOops() {
     currentState = 'oops';
-    // Optional: load oops sprite or animate
-    Future.delayed(Duration(milliseconds: 500), () => showIdle());
+    _reactionId += 1;
+    final currentId = _reactionId;
+    reactionText.text = 'Yuck!';
+    size = Vector2(115, 115);
+    Future.delayed(const Duration(milliseconds: 450), () {
+      if (_reactionId == currentId) showIdle();
+    });
   }
 
   void showIdle() {
     currentState = 'idle';
+    reactionText.text = 'Catch good food!';
+    size = Vector2(130, 130);
   }
 }
 
@@ -178,7 +257,7 @@ class FallingItem extends SpriteComponent with TapCallbacks, HasGameRef<MonsterT
     position.y += fallSpeed * dt;
 
     // Remove if off screen
-    if (position.y > gameRef.size.y + 50) {
+    if (position.y > gameRef.gameplayBottomY + 50) {
       removeFromParent();
     }
   }
@@ -229,6 +308,7 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
         ),
       ),
       anchor: Anchor.center,
+      position: Vector2(size.x / 2, 70),
     );
 
     finalScoreText = TextComponent(
@@ -240,7 +320,7 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
         ),
       ),
       anchor: Anchor.center,
-      position: Vector2(0, 60),
+      position: Vector2(size.x / 2, 140),
     );
 
     restartText = TextComponent(
@@ -252,12 +332,24 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
         ),
       ),
       anchor: Anchor.center,
-      position: Vector2(0, 120),
+      position: Vector2(size.x / 2, 210),
     );
 
     add(gameOverText);
     add(finalScoreText);
     add(restartText);
+    _layoutText();
+  }
+
+  void setDisplaySize(Vector2 newSize) {
+    size = newSize;
+    _layoutText();
+  }
+
+  void _layoutText() {
+    gameOverText.position = Vector2(size.x / 2, size.y * 0.28);
+    finalScoreText.position = Vector2(size.x / 2, size.y * 0.5);
+    restartText.position = Vector2(size.x / 2, size.y * 0.74);
   }
 
   void show(int finalScore) {
@@ -279,8 +371,8 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
   void onTapDown(TapDownEvent event) {
     if (isVisible) {
       final localPoint = event.localPosition;
-      // Check if tap is near restart text (y=120, approximate height 50)
-      if (localPoint.y > 95 && localPoint.y < 145) {
+      // Check if tap is near restart text.
+      if ((localPoint.y - restartText.position.y).abs() < 36) {
         gameRef.restartGame();
       }
     }
