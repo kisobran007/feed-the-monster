@@ -149,7 +149,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     // Add score display
     scoreDisplay = ScoreDisplay()..position = Vector2(20, 24);
     add(scoreDisplay);
-    scoreDisplay.updateHud(score, lives, maxLives, bestScore);
+    scoreDisplay.updateHud(score, lives, maxLives, bestScore, forceRepaint: true);
 
     // Add game over display (hidden initially)
     gameOverDisplay = GameOverDisplay()
@@ -157,7 +157,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     add(gameOverDisplay);
 
     await _loadBestScore();
-    scoreDisplay.updateHud(score, lives, maxLives, bestScore);
+    scoreDisplay.updateHud(score, lives, maxLives, bestScore, forceRepaint: true);
     _layoutScene();
   }
 
@@ -245,12 +245,18 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     
     gameOverDisplay.hide();
     monster.showIdle();
-    scoreDisplay.updateHud(score, lives, maxLives, bestScore);
+    scoreDisplay.updateHud(score, lives, maxLives, bestScore, forceRepaint: true);
   }
 
   void startGame() {
     isStarted = true;
     restartGame();
+    // Force one extra HUD repaint right after start to avoid first-frame glyph fallback glitches.
+    Future.delayed(const Duration(milliseconds: 1), () {
+      if (!isGameOver) {
+        scoreDisplay.updateHud(score, lives, maxLives, bestScore, forceRepaint: true);
+      }
+    });
   }
 
   Future<void> _loadBestScore() async {
@@ -435,25 +441,147 @@ class FallingItem extends SpriteComponent with TapCallbacks, HasGameRef<MonsterT
 }
 
 // Score display component
-class ScoreDisplay extends TextComponent {
-  ScoreDisplay() : super(
-    text: 'Score: 0',
-    textRenderer: TextPaint(
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: 26,
-        fontWeight: FontWeight.bold,
-        shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-      ),
-    ),
-  );
+class ScoreDisplay extends PositionComponent {
+  late TextComponent scoreText;
+  late TextComponent bestText;
+  late HeartsDisplay heartsDisplay;
 
-  void updateHud(int score, int lives, int maxLives, int bestScore) {
-    final hearts = List.generate(
-      maxLives,
-      (index) => index < lives ? '❤️' : '🖤',
-    ).join(' ');
-    text = 'Score: $score   $hearts   Best: $bestScore';
+  int _score = 0;
+  int _lives = 3;
+  int _maxLives = 3;
+  int _bestScore = 0;
+
+  ScoreDisplay();
+
+  @override
+  Future<void> onLoad() async {
+    scoreText = TextComponent(
+      text: '',
+      textRenderer: TextPaint(
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 26,
+          fontWeight: FontWeight.bold,
+          shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+        ),
+      ),
+    )..position = Vector2.zero();
+
+    heartsDisplay = HeartsDisplay(
+      maxLives: _maxLives,
+      lives: _lives,
+    )..position = Vector2(0, 36);
+
+    bestText = TextComponent(
+      text: '',
+      textRenderer: TextPaint(
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+          shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+        ),
+      ),
+    )..position = Vector2(0, 82);
+
+    add(scoreText);
+    add(heartsDisplay);
+    add(bestText);
+    _applyHud();
+  }
+
+  void updateHud(
+    int score,
+    int lives,
+    int maxLives,
+    int bestScore, {
+    bool forceRepaint = false,
+  }) {
+    _score = score;
+    _lives = lives;
+    _maxLives = maxLives;
+    _bestScore = bestScore;
+    if (!isLoaded) return;
+    _applyHud();
+  }
+
+  void _applyHud() {
+    scoreText.text = 'Score: $_score';
+    bestText.text = 'Best: $_bestScore';
+    heartsDisplay
+      ..maxLives = _maxLives
+      ..lives = _lives;
+  }
+}
+
+class HeartsDisplay extends PositionComponent {
+  int lives;
+  int maxLives;
+
+  HeartsDisplay({
+    required this.lives,
+    required this.maxLives,
+  });
+
+  final Paint _fullPaint = Paint()..color = const Color(0xFFE53935);
+  final Paint _emptyPaint = Paint()..color = const Color(0xFF555555);
+  final Paint _strokePaint = Paint()
+    ..color = const Color(0xDDFFFFFF)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.2;
+
+  static const double _heartSize = 24;
+  static const double _spacing = 10;
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    for (var i = 0; i < maxLives; i++) {
+      final paint = i < lives ? _fullPaint : _emptyPaint;
+      final dx = i * (_heartSize + _spacing);
+      final path = _buildHeartPath(dx, 0, _heartSize);
+      canvas.drawPath(path, paint);
+      canvas.drawPath(path, _strokePaint);
+    }
+  }
+
+  Path _buildHeartPath(double x, double y, double size) {
+    final path = Path();
+    path.moveTo(x + size * 0.5, y + size * 0.92);
+    path.cubicTo(
+      x + size * 0.1,
+      y + size * 0.62,
+      x - size * 0.02,
+      y + size * 0.34,
+      x + size * 0.2,
+      y + size * 0.18,
+    );
+    path.cubicTo(
+      x + size * 0.36,
+      y + size * 0.04,
+      x + size * 0.55,
+      y + size * 0.14,
+      x + size * 0.5,
+      y + size * 0.3,
+    );
+    path.cubicTo(
+      x + size * 0.45,
+      y + size * 0.14,
+      x + size * 0.64,
+      y + size * 0.04,
+      x + size * 0.8,
+      y + size * 0.18,
+    );
+    path.cubicTo(
+      x + size * 1.02,
+      y + size * 0.34,
+      x + size * 0.9,
+      y + size * 0.62,
+      x + size * 0.5,
+      y + size * 0.92,
+    );
+    path.close();
+    return path;
   }
 }
 
