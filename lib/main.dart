@@ -10,13 +10,90 @@ void main() {
 }
 
 class GameApp extends StatelessWidget {
+  const GameApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        body: GameWidget(game: MonsterTapGame()),
+        body: const GameScreen(),
       ),
+    );
+  }
+}
+
+class GameScreen extends StatefulWidget {
+  const GameScreen({super.key});
+
+  @override
+  State<GameScreen> createState() => _GameScreenState();
+}
+
+class _GameScreenState extends State<GameScreen> {
+  late final MonsterTapGame game;
+  bool hasStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    game = MonsterTapGame();
+  }
+
+  void _startGame() {
+    game.startGame();
+    setState(() {
+      hasStarted = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        GameWidget(game: game),
+        if (!hasStarted)
+          Positioned.fill(
+            child: Container(
+              color: const Color(0xDD111111),
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Monster Tap Game',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 42,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Tap good food, avoid bad items!',
+                    style: TextStyle(color: Colors.white70, fontSize: 20),
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton(
+                    onPressed: _startGame,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2ECC71),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 16,
+                      ),
+                    ),
+                    child: const Text(
+                      'Start The Game',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -31,6 +108,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   late RectangleComponent areaDivider;
   int score = 0;
   bool isGameOver = false;
+  bool isStarted = false;
   double spawnTimer = 0;
   final double spawnInterval = 1.5; // Spawn item every 1.5 seconds
   static const double monsterAreaRatio = 0.28;
@@ -70,7 +148,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   void update(double dt) {
     super.update(dt);
     
-    if (isGameOver) return;
+    if (!isStarted || isGameOver) return;
 
     // Spawn items periodically
     spawnTimer += dt;
@@ -132,6 +210,12 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     
     gameOverDisplay.hide();
     monster.showIdle();
+    scoreDisplay.updateScore(score);
+  }
+
+  void startGame() {
+    isStarted = true;
+    restartGame();
   }
 
   @override
@@ -181,7 +265,10 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
   String currentState = 'idle';
   int _reactionId = 0;
-  static const Duration _reactionDuration = Duration(milliseconds: 250);
+  static const Duration _reactionDuration = Duration(milliseconds: 500);
+  static const double _idleSize = 190;
+  static const double _happySize = 210;
+  static const double _sadSize = 170;
   final Random _random = Random();
   final List<String> _happySounds = ['happy_wee.mp3'];
   final List<String> _sadSounds = ['sad_aww.mp3'];
@@ -199,12 +286,11 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     happySprite = await gameRef.loadSprite('characters/monster_happy.png');
     sadSprite = await gameRef.loadSprite('characters/monster_sad.png');
     sprite = idleSprite;
-    size = Vector2(130, 130);
+    size = Vector2.all(_idleSize);
 
     reactionText = TextComponent(
       text: 'Catch good food!',
-      anchor: Anchor.center,
-      position: Vector2(0, -95),
+      anchor: Anchor.topCenter,
       textRenderer: TextPaint(
         style: TextStyle(
           color: Colors.white,
@@ -215,6 +301,7 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
       ),
     );
     add(reactionText);
+    _layoutReactionText();
   }
 
   void showHappy() {
@@ -222,9 +309,10 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     _reactionId += 1;
     final currentId = _reactionId;
     sprite = happySprite;
-    _playReactionSound(_happySounds);
+    //_playReactionSound(_happySounds);
     reactionText.text = 'Yummy!';
-    size = Vector2(145, 145);
+    size = Vector2.all(_happySize);
+    _layoutReactionText();
     Future.delayed(_reactionDuration, () {
       if (_reactionId == currentId) showIdle();
     });
@@ -235,9 +323,10 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     _reactionId += 1;
     final currentId = _reactionId;
     sprite = sadSprite;
-    _playReactionSound(_sadSounds);
+    //_playReactionSound(_sadSounds);
     reactionText.text = 'Yuck!';
-    size = Vector2(115, 115);
+    size = Vector2.all(_sadSize);
+    _layoutReactionText();
     Future.delayed(_reactionDuration, () {
       if (_reactionId == currentId) showIdle();
     });
@@ -247,13 +336,18 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     currentState = 'idle';
     sprite = idleSprite;
     reactionText.text = 'Catch good food!';
-    size = Vector2(130, 130);
+    size = Vector2.all(_idleSize);
+    _layoutReactionText();
   }
 
   void _playReactionSound(List<String> sounds) {
     if (sounds.isEmpty) return;
     final sound = sounds[_random.nextInt(sounds.length)];
     FlameAudio.play(sound);
+  }
+
+  void _layoutReactionText() {
+    reactionText.position = Vector2(size.x / 2, -54);
   }
 }
 
@@ -263,6 +357,7 @@ class FallingItem extends SpriteComponent with TapCallbacks, HasGameRef<MonsterT
   final bool isGood;
   final Function(FallingItem) onTapped;
   final double fallSpeed = 100; // pixels per second
+  static const double _itemSize = 125;
 
   FallingItem({
     required this.itemType,
@@ -273,7 +368,7 @@ class FallingItem extends SpriteComponent with TapCallbacks, HasGameRef<MonsterT
   @override
   Future<void> onLoad() async {
     sprite = await gameRef.loadSprite('items/$itemType.png');
-    size = Vector2(80, 80);
+    size = Vector2.all(_itemSize);
   }
 
   @override
