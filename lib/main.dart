@@ -180,11 +180,18 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
   String currentState = 'idle';
   int _reactionId = 0;
+  static const Duration _reactionDuration = Duration(milliseconds: 250);
   late TextComponent reactionText;
+  late Sprite idleSprite;
+  late Sprite happySprite;
+  late Sprite sadSprite;
 
   @override
   Future<void> onLoad() async {
-    sprite = await gameRef.loadSprite('characters/monster.png');
+    idleSprite = await gameRef.loadSprite('characters/monster_idle.png');
+    happySprite = await gameRef.loadSprite('characters/monster_happy.png');
+    sadSprite = await gameRef.loadSprite('characters/monster_sad.png');
+    sprite = idleSprite;
     size = Vector2(130, 130);
 
     reactionText = TextComponent(
@@ -207,9 +214,10 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     currentState = 'happy';
     _reactionId += 1;
     final currentId = _reactionId;
+    sprite = happySprite;
     reactionText.text = 'Yummy!';
     size = Vector2(145, 145);
-    Future.delayed(const Duration(milliseconds: 450), () {
+    Future.delayed(_reactionDuration, () {
       if (_reactionId == currentId) showIdle();
     });
   }
@@ -218,15 +226,17 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     currentState = 'oops';
     _reactionId += 1;
     final currentId = _reactionId;
+    sprite = sadSprite;
     reactionText.text = 'Yuck!';
     size = Vector2(115, 115);
-    Future.delayed(const Duration(milliseconds: 450), () {
+    Future.delayed(_reactionDuration, () {
       if (_reactionId == currentId) showIdle();
     });
   }
 
   void showIdle() {
     currentState = 'idle';
+    sprite = idleSprite;
     reactionText.text = 'Catch good food!';
     size = Vector2(130, 130);
   }
