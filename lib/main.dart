@@ -1,6 +1,7 @@
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
+import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 
@@ -181,6 +182,9 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
   String currentState = 'idle';
   int _reactionId = 0;
   static const Duration _reactionDuration = Duration(milliseconds: 250);
+  final Random _random = Random();
+  final List<String> _happySounds = ['happy_wee.mp3'];
+  final List<String> _sadSounds = ['sad_aww.mp3'];
   late TextComponent reactionText;
   late Sprite idleSprite;
   late Sprite happySprite;
@@ -188,6 +192,9 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
 
   @override
   Future<void> onLoad() async {
+    FlameAudio.audioCache.prefix = 'assets/sounds/';
+    await FlameAudio.audioCache.loadAll([..._happySounds, ..._sadSounds]);
+
     idleSprite = await gameRef.loadSprite('characters/monster_idle.png');
     happySprite = await gameRef.loadSprite('characters/monster_happy.png');
     sadSprite = await gameRef.loadSprite('characters/monster_sad.png');
@@ -215,6 +222,7 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     _reactionId += 1;
     final currentId = _reactionId;
     sprite = happySprite;
+    _playReactionSound(_happySounds);
     reactionText.text = 'Yummy!';
     size = Vector2(145, 145);
     Future.delayed(_reactionDuration, () {
@@ -227,6 +235,7 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     _reactionId += 1;
     final currentId = _reactionId;
     sprite = sadSprite;
+    _playReactionSound(_sadSounds);
     reactionText.text = 'Yuck!';
     size = Vector2(115, 115);
     Future.delayed(_reactionDuration, () {
@@ -239,6 +248,12 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     sprite = idleSprite;
     reactionText.text = 'Catch good food!';
     size = Vector2(130, 130);
+  }
+
+  void _playReactionSound(List<String> sounds) {
+    if (sounds.isEmpty) return;
+    final sound = sounds[_random.nextInt(sounds.length)];
+    FlameAudio.play(sound);
   }
 }
 

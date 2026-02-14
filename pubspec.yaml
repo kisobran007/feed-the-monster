@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   flame: ^1.10.0
+  flame_audio: ^2.11.14
 
 dev_dependencies:
   flutter_test:
@@ -21,3 +22,4 @@ flutter:
   assets:
     - assets/images/items/
     - assets/images/characters/
+    - assets/sounds/
