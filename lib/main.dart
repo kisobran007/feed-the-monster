@@ -34,6 +34,7 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> {
   late final MonsterTapGame game;
   bool hasStarted = false;
+  bool isPaused = false;
 
   @override
   void initState() {
@@ -45,6 +46,19 @@ class _GameScreenState extends State<GameScreen> {
     game.startGame();
     setState(() {
       hasStarted = true;
+      isPaused = false;
+    });
+  }
+
+  void _togglePause() {
+    if (!hasStarted || game.isGameOver) return;
+    if (isPaused) {
+      game.resumeGame();
+    } else {
+      game.pauseGame();
+    }
+    setState(() {
+      isPaused = !isPaused;
     });
   }
 
@@ -94,6 +108,47 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
           ),
+        if (hasStarted)
+          Positioned(
+            top: 18,
+            right: 18,
+            child: ElevatedButton(
+              onPressed: _togglePause,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xCC111111),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+              child: Text(
+                isPaused ? 'Resume' : 'Pause',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        if (isPaused)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Container(
+                color: const Color(0x66000000),
+                alignment: Alignment.center,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xDD111111),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Paused',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -120,6 +175,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   int bestScore = 0;
   bool isGameOver = false;
   bool isStarted = false;
+  bool isPaused = false;
   double survivalTime = 0;
   double _difficultyTimer = 0;
   double currentSpawnInterval = baseSpawnInterval;
@@ -165,7 +221,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   void update(double dt) {
     super.update(dt);
     
-    if (!isStarted || isGameOver) return;
+    if (!isStarted || isGameOver || isPaused) return;
 
     survivalTime += dt;
     _difficultyTimer += dt;
@@ -222,6 +278,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   void triggerGameOver() {
     isGameOver = true;
+    isPaused = false;
     if (score > bestScore) {
       bestScore = score;
       _saveBestScore();
@@ -234,6 +291,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     score = 0;
     lives = maxLives;
     isGameOver = false;
+    isPaused = false;
     spawnTimer = 0;
     survivalTime = 0;
     _difficultyTimer = 0;
@@ -250,6 +308,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   void startGame() {
     isStarted = true;
+    isPaused = false;
+    resumeEngine();
     restartGame();
     // Force one extra HUD repaint right after start to avoid first-frame glyph fallback glitches.
     Future.delayed(const Duration(milliseconds: 1), () {
@@ -257,6 +317,18 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
         scoreDisplay.updateHud(score, lives, maxLives, bestScore, forceRepaint: true);
       }
     });
+  }
+
+  void pauseGame() {
+    if (!isStarted || isGameOver || isPaused) return;
+    isPaused = true;
+    pauseEngine();
+  }
+
+  void resumeGame() {
+    if (!isStarted || isGameOver || !isPaused) return;
+    isPaused = false;
+    resumeEngine();
   }
 
   Future<void> _loadBestScore() async {
