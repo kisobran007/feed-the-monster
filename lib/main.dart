@@ -3,6 +3,7 @@ import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 
 void main() {
@@ -106,11 +107,24 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   late RectangleComponent playAreaBackground;
   late RectangleComponent monsterAreaBackground;
   late RectangleComponent areaDivider;
+  static const int maxLives = 3;
+  static const double baseSpawnInterval = 1.5;
+  static const double minSpawnInterval = 0.7;
+  static const double spawnIntervalStep = 0.12;
+  static const double difficultyTickSeconds = 12;
+  static const double baseFallSpeed = 100;
+  static const double maxFallSpeed = 220;
+  static const double fallSpeedStep = 10;
   int score = 0;
+  int lives = maxLives;
+  int bestScore = 0;
   bool isGameOver = false;
   bool isStarted = false;
+  double survivalTime = 0;
+  double _difficultyTimer = 0;
+  double currentSpawnInterval = baseSpawnInterval;
+  double currentFallSpeed = baseFallSpeed;
   double spawnTimer = 0;
-  final double spawnInterval = 1.5; // Spawn item every 1.5 seconds
   static const double monsterAreaRatio = 0.28;
 
   double get gameplayBottomY => size.y * (1 - monsterAreaRatio);
@@ -135,12 +149,15 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     // Add score display
     scoreDisplay = ScoreDisplay()..position = Vector2(20, 24);
     add(scoreDisplay);
+    scoreDisplay.updateHud(score, lives, bestScore);
 
     // Add game over display (hidden initially)
     gameOverDisplay = GameOverDisplay()
       ..anchor = Anchor.center;
     add(gameOverDisplay);
 
+    await _loadBestScore();
+    scoreDisplay.updateHud(score, lives, bestScore);
     _layoutScene();
   }
 
@@ -150,15 +167,20 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     
     if (!isStarted || isGameOver) return;
 
+    survivalTime += dt;
+    _difficultyTimer += dt;
+    if (_difficultyTimer >= difficultyTickSeconds) {
+      _difficultyTimer = 0;
+      currentSpawnInterval = max(minSpawnInterval, currentSpawnInterval - spawnIntervalStep);
+      currentFallSpeed = min(maxFallSpeed, currentFallSpeed + fallSpeedStep);
+    }
+
     // Spawn items periodically
     spawnTimer += dt;
-    if (spawnTimer >= spawnInterval) {
+    if (spawnTimer >= currentSpawnInterval) {
       spawnTimer = 0;
       spawnRandomItem();
     }
-
-    // Update score display
-    scoreDisplay.updateScore(score);
   }
 
   void spawnRandomItem() {
@@ -172,6 +194,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       itemType: itemType,
       isGood: isGood,
       onTapped: handleItemTap,
+      fallSpeed: currentFallSpeed,
     )
       ..position = Vector2(random.nextDouble() * (size.x - 90) + 45, -50)
       ..anchor = Anchor.center;
@@ -187,35 +210,57 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       monster.showHappy();
     } else {
       score -= 5;
+      lives -= 1;
       monster.showOops();
-      if (score < 0) {
+      if (lives <= 0) {
         triggerGameOver();
       }
     }
+    scoreDisplay.updateHud(score, lives, bestScore);
     item.removeFromParent();
   }
 
   void triggerGameOver() {
     isGameOver = true;
-    gameOverDisplay.show(score);
+    if (score > bestScore) {
+      bestScore = score;
+      _saveBestScore();
+    }
+    scoreDisplay.updateHud(score, lives, bestScore);
+    gameOverDisplay.show(score, bestScore, survivalTime);
   }
 
   void restartGame() {
     score = 0;
+    lives = maxLives;
     isGameOver = false;
     spawnTimer = 0;
+    survivalTime = 0;
+    _difficultyTimer = 0;
+    currentSpawnInterval = baseSpawnInterval;
+    currentFallSpeed = baseFallSpeed;
     
     // Remove all falling items
     children.whereType<FallingItem>().toList().forEach((item) => item.removeFromParent());
     
     gameOverDisplay.hide();
     monster.showIdle();
-    scoreDisplay.updateScore(score);
+    scoreDisplay.updateHud(score, lives, bestScore);
   }
 
   void startGame() {
     isStarted = true;
     restartGame();
+  }
+
+  Future<void> _loadBestScore() async {
+    final prefs = await SharedPreferences.getInstance();
+    bestScore = prefs.getInt('best_score') ?? 0;
+  }
+
+  Future<void> _saveBestScore() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('best_score', bestScore);
   }
 
   @override
@@ -235,7 +280,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   void _layoutScene() {
     final bottomY = gameplayBottomY;
-    final overlaySize = Vector2(size.x * 0.92, min(420.0, bottomY * 0.8));
+    final overlaySize = Vector2(size.x * 0.92, min(520.0, bottomY * 0.95));
 
     playAreaBackground
       ..position = Vector2.zero()
@@ -356,13 +401,14 @@ class FallingItem extends SpriteComponent with TapCallbacks, HasGameRef<MonsterT
   final String itemType;
   final bool isGood;
   final Function(FallingItem) onTapped;
-  final double fallSpeed = 100; // pixels per second
+  final double fallSpeed; // pixels per second
   static const double _itemSize = 125;
 
   FallingItem({
     required this.itemType,
     required this.isGood,
     required this.onTapped,
+    required this.fallSpeed,
   });
 
   @override
@@ -395,15 +441,15 @@ class ScoreDisplay extends TextComponent {
     textRenderer: TextPaint(
       style: TextStyle(
         color: Colors.white,
-        fontSize: 32,
+        fontSize: 26,
         fontWeight: FontWeight.bold,
         shadows: [Shadow(color: Colors.black, blurRadius: 4)],
       ),
     ),
   );
 
-  void updateScore(int score) {
-    text = 'Score: $score';
+  void updateHud(int score, int lives, int bestScore) {
+    text = 'Score: $score   Lives: $lives   Best: $bestScore';
   }
 }
 
@@ -411,6 +457,8 @@ class ScoreDisplay extends TextComponent {
 class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<MonsterTapGame> {
   late TextComponent gameOverText;
   late TextComponent finalScoreText;
+  late TextComponent bestScoreText;
+  late TextComponent survivalTimeText;
   late TextComponent restartText;
   bool isVisible = false;
 
@@ -443,6 +491,30 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
       position: Vector2(size.x / 2, 140),
     );
 
+    bestScoreText = TextComponent(
+      text: '',
+      textRenderer: TextPaint(
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 28,
+        ),
+      ),
+      anchor: Anchor.center,
+      position: Vector2(size.x / 2, 185),
+    );
+
+    survivalTimeText = TextComponent(
+      text: '',
+      textRenderer: TextPaint(
+        style: TextStyle(
+          color: Colors.white70,
+          fontSize: 24,
+        ),
+      ),
+      anchor: Anchor.center,
+      position: Vector2(size.x / 2, 230),
+    );
+
     restartText = TextComponent(
       text: 'Tap to Restart',
       textRenderer: TextPaint(
@@ -457,6 +529,8 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
 
     add(gameOverText);
     add(finalScoreText);
+    add(bestScoreText);
+    add(survivalTimeText);
     add(restartText);
     _layoutText();
   }
@@ -467,14 +541,18 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
   }
 
   void _layoutText() {
-    gameOverText.position = Vector2(size.x / 2, size.y * 0.28);
-    finalScoreText.position = Vector2(size.x / 2, size.y * 0.5);
-    restartText.position = Vector2(size.x / 2, size.y * 0.74);
+    gameOverText.position = Vector2(size.x / 2, size.y * 0.22);
+    finalScoreText.position = Vector2(size.x / 2, size.y * 0.4);
+    bestScoreText.position = Vector2(size.x / 2, size.y * 0.54);
+    survivalTimeText.position = Vector2(size.x / 2, size.y * 0.67);
+    restartText.position = Vector2(size.x / 2, size.y * 0.84);
   }
 
-  void show(int finalScore) {
+  void show(int finalScore, int bestScore, double survivalTime) {
     isVisible = true;
     finalScoreText.text = 'Final Score: $finalScore';
+    bestScoreText.text = 'Best Score: $bestScore';
+    survivalTimeText.text = 'Time: ${survivalTime.toStringAsFixed(1)}s';
   }
 
   void hide() {
