@@ -149,7 +149,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     // Add score display
     scoreDisplay = ScoreDisplay()..position = Vector2(20, 24);
     add(scoreDisplay);
-    scoreDisplay.updateHud(score, lives, bestScore);
+    scoreDisplay.updateHud(score, lives, maxLives, bestScore);
 
     // Add game over display (hidden initially)
     gameOverDisplay = GameOverDisplay()
@@ -157,7 +157,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     add(gameOverDisplay);
 
     await _loadBestScore();
-    scoreDisplay.updateHud(score, lives, bestScore);
+    scoreDisplay.updateHud(score, lives, maxLives, bestScore);
     _layoutScene();
   }
 
@@ -216,7 +216,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
         triggerGameOver();
       }
     }
-    scoreDisplay.updateHud(score, lives, bestScore);
+    scoreDisplay.updateHud(score, lives, maxLives, bestScore);
     item.removeFromParent();
   }
 
@@ -226,7 +226,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       bestScore = score;
       _saveBestScore();
     }
-    scoreDisplay.updateHud(score, lives, bestScore);
+    scoreDisplay.updateHud(score, lives, maxLives, bestScore);
     gameOverDisplay.show(score, bestScore, survivalTime);
   }
 
@@ -245,7 +245,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     
     gameOverDisplay.hide();
     monster.showIdle();
-    scoreDisplay.updateHud(score, lives, bestScore);
+    scoreDisplay.updateHud(score, lives, maxLives, bestScore);
   }
 
   void startGame() {
@@ -448,8 +448,12 @@ class ScoreDisplay extends TextComponent {
     ),
   );
 
-  void updateHud(int score, int lives, int bestScore) {
-    text = 'Score: $score   Lives: $lives   Best: $bestScore';
+  void updateHud(int score, int lives, int maxLives, int bestScore) {
+    final hearts = List.generate(
+      maxLives,
+      (index) => index < lives ? '❤️' : '🖤',
+    ).join(' ');
+    text = 'Score: $score   $hearts   Best: $bestScore';
   }
 }
 
