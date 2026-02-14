@@ -71,7 +71,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     final isGood = random.nextBool(); // 50% chance for good/bad
     final itemType = isGood
         ? ['apple', 'banana', 'cookie', 'strawberry'][random.nextInt(4)]
-        : ['bad_shoe', 'bad_rock'][random.nextInt(2)];
+        : ['bad_shoe', 'bad_rock', 'bad_soap', 'bad_brick'][random.nextInt(2)];
 
     final item = FallingItem(
       itemType: itemType,
@@ -119,10 +119,11 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   @override
   void onTapDown(TapDownEvent event) {
-    if (isGameOver && gameOverDisplay.isVisible) {
-      restartGame();
-    }
+    // Tap handled by GameOverDisplay
   }
+
+  @override
+  Color backgroundColor() => const Color(0xFF2A2A2A);
 }
 
 // Monster character component
@@ -208,7 +209,7 @@ class ScoreDisplay extends TextComponent {
 }
 
 // Game over display component
-class GameOverDisplay extends PositionComponent {
+class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<MonsterTapGame> {
   late TextComponent gameOverText;
   late TextComponent finalScoreText;
   late TextComponent restartText;
@@ -255,8 +256,6 @@ class GameOverDisplay extends PositionComponent {
     add(gameOverText);
     add(finalScoreText);
     add(restartText);
-    
-    hide();
   }
 
   void show(int finalScore) {
@@ -269,8 +268,15 @@ class GameOverDisplay extends PositionComponent {
   }
 
   @override
-  void render(Canvas canvas) {
+  void renderTree(Canvas canvas) {
     if (!isVisible) return;
-    super.render(canvas);
+    super.renderTree(canvas);
+  }
+
+  @override
+  void onTapDown(TapDownEvent event) {
+    if (isVisible) {
+      gameRef.restartGame();
+    }
   }
 }
