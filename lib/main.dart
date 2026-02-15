@@ -191,6 +191,10 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   double currentSpawnInterval = baseSpawnInterval;
   double currentFallSpeed = baseFallSpeed;
   double spawnTimer = 0;
+  double _shakeTime = 0;
+  static const double _shakeDuration = 0.14;
+  static const double _shakeStrength = 9;
+  final Random _fxRandom = Random();
   static const double monsterAreaRatio = 0.28;
 
   double get gameplayBottomY => size.y * (1 - monsterAreaRatio);
@@ -246,6 +250,10 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   @override
   void update(double dt) {
     super.update(dt);
+
+    if (_shakeTime > 0) {
+      _shakeTime = max(0, _shakeTime - dt);
+    }
     
     if (!isStarted || isGameOver || isPaused) return;
 
@@ -294,6 +302,23 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       score += goodItemPoints;
       if (goodStreak >= 3) {
         monster.showStreak();
+        add(
+          TapBurst(
+            position: tapPosition,
+            baseColor: const Color(0xFFFFD54F),
+            particleCount: 24,
+            particleSize: 10,
+            lifetime: 0.55,
+            spreadSpeed: 210,
+            palette: const [
+              Color(0xFFFFD54F),
+              Color(0xFF81C784),
+              Color(0xFF4FC3F7),
+              Color(0xFFFF8A65),
+              Color(0xFFBA68C8),
+            ],
+          ),
+        );
       } else {
         monster.showHappy();
       }
@@ -312,6 +337,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       score -= badItemPointsPenalty;
       lives -= 1;
       monster.showOops();
+      _triggerScreenShake();
       add(
         TapBurst(
           position: tapPosition,
@@ -435,6 +461,10 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     return 'Goal: survive and beat best score';
   }
 
+  void _triggerScreenShake() {
+    _shakeTime = _shakeDuration;
+  }
+
   void pauseGame() {
     if (!isStarted || isGameOver || isPaused) return;
     isPaused = true;
@@ -464,6 +494,21 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   @override
   Color backgroundColor() => const Color(0xFF2A2A2A);
+
+  @override
+  void render(Canvas canvas) {
+    if (_shakeTime > 0) {
+      final intensity = (_shakeTime / _shakeDuration).clamp(0.0, 1.0);
+      final dx = (_fxRandom.nextDouble() * 2 - 1) * _shakeStrength * intensity;
+      final dy = (_fxRandom.nextDouble() * 2 - 1) * _shakeStrength * intensity;
+      canvas.save();
+      canvas.translate(dx, dy);
+      super.render(canvas);
+      canvas.restore();
+      return;
+    }
+    super.render(canvas);
+  }
 
   @override
   void onGameResize(Vector2 size) {
@@ -738,6 +783,7 @@ class TapBurst extends PositionComponent {
   final double particleSize;
   final double lifetime;
   final double spreadSpeed;
+  final List<Color>? palette;
   final Random _random = Random();
 
   final List<_BurstParticle> _particles = [];
@@ -750,6 +796,7 @@ class TapBurst extends PositionComponent {
     required this.particleSize,
     required this.lifetime,
     required this.spreadSpeed,
+    this.palette,
   }) {
     this.position = position;
     priority = 30;
@@ -764,6 +811,9 @@ class TapBurst extends PositionComponent {
         _BurstParticle(
           velocity: Vector2(cos(angle) * speed, sin(angle) * speed),
           size: particleSize * (0.6 + _random.nextDouble() * 0.9),
+          color: palette == null
+              ? baseColor
+              : palette![_random.nextInt(palette!.length)],
         ),
       );
     }
@@ -783,14 +833,13 @@ class TapBurst extends PositionComponent {
     super.render(canvas);
     final t = (_elapsed / lifetime).clamp(0.0, 1.0);
     final alpha = (255 * (1 - t)).clamp(0, 255).toInt();
-    final paint = Paint()
-      ..color = baseColor.withAlpha(alpha)
-      ..style = PaintingStyle.fill;
+    final paint = Paint()..style = PaintingStyle.fill;
 
     for (final p in _particles) {
       final x = p.velocity.x * _elapsed;
       final y = p.velocity.y * _elapsed;
       final radius = p.size * (1 - t * 0.7);
+      paint.color = p.color.withAlpha(alpha);
       canvas.drawCircle(Offset(x, y), radius, paint);
     }
   }
@@ -799,10 +848,12 @@ class TapBurst extends PositionComponent {
 class _BurstParticle {
   final Vector2 velocity;
   final double size;
+  final Color color;
 
   _BurstParticle({
     required this.velocity,
     required this.size,
+    required this.color,
   });
 }
 
