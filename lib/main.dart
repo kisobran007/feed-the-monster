@@ -182,6 +182,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   int lives = maxLives;
   int bestScore = 0;
   int level = 1;
+  int goodStreak = 0;
   bool isGameOver = false;
   bool isStarted = false;
   bool isPaused = false;
@@ -286,14 +287,41 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   void handleItemTap(FallingItem item) {
     if (isGameOver) return;
+    final tapPosition = item.position.clone();
 
     if (item.isGood) {
+      goodStreak += 1;
       score += goodItemPoints;
-      monster.showHappy();
+      if (goodStreak >= 3) {
+        monster.showStreak();
+      } else {
+        monster.showHappy();
+      }
+      add(
+        TapBurst(
+          position: tapPosition,
+          baseColor: const Color(0xFFFFD54F),
+          particleCount: 16,
+          particleSize: 8,
+          lifetime: 0.35,
+          spreadSpeed: 180,
+        ),
+      );
     } else {
+      goodStreak = 0;
       score -= badItemPointsPenalty;
       lives -= 1;
       monster.showOops();
+      add(
+        TapBurst(
+          position: tapPosition,
+          baseColor: const Color(0xFFE53935),
+          particleCount: 14,
+          particleSize: 9,
+          lifetime: 0.32,
+          spreadSpeed: 170,
+        ),
+      );
       if (lives <= 0) {
         triggerGameOver();
       }
@@ -308,6 +336,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (!item.isGood) return;
 
     // Missing healthy food costs one life and a small score penalty.
+    goodStreak = 0;
     lives -= 1;
     score -= missedGoodItemPointsPenalty;
     monster.showOops();
@@ -335,6 +364,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     score = 0;
     lives = maxLives;
     level = 1;
+    goodStreak = 0;
     isGameOver = false;
     isPaused = false;
     spawnTimer = 0;
@@ -481,7 +511,7 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
   final Random _random = Random();
   final List<String> _happySounds = ['happy_wee.mp3'];
   final List<String> _sadSounds = ['sad_aww.mp3'];
-  late TextComponent reactionText;
+  late MonsterReactionIndicator reactionIndicator;
   late Sprite idleSprite;
   late Sprite happySprite;
   late Sprite sadSprite;
@@ -497,20 +527,10 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     sprite = idleSprite;
     size = Vector2.all(_idleSize);
 
-    reactionText = TextComponent(
-      text: 'Catch good food!',
-      anchor: Anchor.topCenter,
-      textRenderer: TextPaint(
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 22,
-          fontWeight: FontWeight.w700,
-          shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-        ),
-      ),
-    );
-    add(reactionText);
-    _layoutReactionText();
+    reactionIndicator = MonsterReactionIndicator()
+      ..anchor = Anchor.center;
+    add(reactionIndicator);
+    _layoutReactionIndicator();
   }
 
   void showHappy() {
@@ -518,10 +538,9 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     _reactionId += 1;
     final currentId = _reactionId;
     sprite = happySprite;
-    //_playReactionSound(_happySounds);
-    reactionText.text = 'Yummy!';
+    reactionIndicator.showHappy();
     size = Vector2.all(_happySize);
-    _layoutReactionText();
+    _layoutReactionIndicator();
     Future.delayed(_reactionDuration, () {
       if (_reactionId == currentId) showIdle();
     });
@@ -532,10 +551,9 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     _reactionId += 1;
     final currentId = _reactionId;
     sprite = sadSprite;
-    //_playReactionSound(_sadSounds);
-    reactionText.text = 'Yuck!';
+    reactionIndicator.showOops();
     size = Vector2.all(_sadSize);
-    _layoutReactionText();
+    _layoutReactionIndicator();
     Future.delayed(_reactionDuration, () {
       if (_reactionId == currentId) showIdle();
     });
@@ -544,18 +562,31 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
   void showIdle() {
     currentState = 'idle';
     sprite = idleSprite;
-    reactionText.text = 'Catch good food!';
+    reactionIndicator.hideIndicator();
     size = Vector2.all(_idleSize);
-    _layoutReactionText();
+    _layoutReactionIndicator();
   }
 
   void showGameOver() {
     _reactionId += 1;
     currentState = 'game_over';
     sprite = sadSprite;
-    reactionText.text = '';
+    reactionIndicator.showGameOver();
     size = Vector2.all(_sadSize);
-    _layoutReactionText();
+    _layoutReactionIndicator();
+  }
+
+  void showStreak() {
+    currentState = 'streak';
+    _reactionId += 1;
+    final currentId = _reactionId;
+    sprite = happySprite;
+    reactionIndicator.showStreak();
+    size = Vector2.all(_happySize + 12);
+    _layoutReactionIndicator();
+    Future.delayed(const Duration(milliseconds: 620), () {
+      if (_reactionId == currentId) showIdle();
+    });
   }
 
   void _playReactionSound(List<String> sounds) {
@@ -564,8 +595,99 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     FlameAudio.play(sound);
   }
 
-  void _layoutReactionText() {
-    reactionText.position = Vector2(size.x / 2, -54);
+  void _layoutReactionIndicator() {
+    reactionIndicator.position = Vector2(size.x / 2, -54);
+  }
+}
+
+enum MonsterReactionState {
+  none,
+  happy,
+  oops,
+  streak,
+  gameOver,
+}
+
+class MonsterReactionIndicator extends PositionComponent {
+  MonsterReactionState state = MonsterReactionState.none;
+  double _time = 0;
+
+  final Paint _happyPaint = Paint()..color = const Color(0xFFFFD54F);
+  final Paint _oopsPaint = Paint()..color = const Color(0xFFE53935);
+  final Paint _streakPaint = Paint()..color = const Color(0xFFFFEE58);
+  final Paint _gameOverPaint = Paint()..color = const Color(0xFF64B5F6);
+
+  MonsterReactionIndicator() {
+    size = Vector2(120, 64);
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _time += dt;
+  }
+
+  void showHappy() => state = MonsterReactionState.happy;
+  void showOops() => state = MonsterReactionState.oops;
+  void showStreak() => state = MonsterReactionState.streak;
+  void showGameOver() => state = MonsterReactionState.gameOver;
+  void hideIndicator() => state = MonsterReactionState.none;
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    if (state == MonsterReactionState.none) return;
+
+    final pulse = 1 + 0.12 * sin(_time * 8);
+    final center = Offset(size.x / 2, size.y / 2);
+
+    if (state == MonsterReactionState.happy) {
+      _drawOrbitDots(canvas, center, 20 * pulse, 3, _happyPaint, 8);
+    } else if (state == MonsterReactionState.oops) {
+      _drawCross(canvas, center, 22 * pulse, _oopsPaint);
+      canvas.drawCircle(center.translate(-18, 0), 4 * pulse, _oopsPaint);
+      canvas.drawCircle(center.translate(18, 0), 4 * pulse, _oopsPaint);
+    } else if (state == MonsterReactionState.streak) {
+      _drawOrbitDots(canvas, center, 26 * pulse, 5, _streakPaint, 9);
+    } else if (state == MonsterReactionState.gameOver) {
+      canvas.drawCircle(center.translate(-10, 6), 7 * pulse, _gameOverPaint);
+      canvas.drawCircle(center.translate(10, 6), 7 * pulse, _gameOverPaint);
+      canvas.drawCircle(center.translate(0, 20), 5 * pulse, _gameOverPaint);
+    }
+  }
+
+  void _drawOrbitDots(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    int count,
+    Paint paint,
+    double dotRadius,
+  ) {
+    for (var i = 0; i < count; i++) {
+      final angle = (_time * 2.8) + (2 * pi * i / count);
+      final x = center.dx + cos(angle) * radius;
+      final y = center.dy + sin(angle) * (radius * 0.6);
+      canvas.drawCircle(Offset(x, y), dotRadius, paint);
+    }
+  }
+
+  void _drawCross(Canvas canvas, Offset center, double halfSize, Paint paint) {
+    final stroke = Paint()
+      ..color = paint.color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(center.dx - halfSize, center.dy - halfSize),
+      Offset(center.dx + halfSize, center.dy + halfSize),
+      stroke,
+    );
+    canvas.drawLine(
+      Offset(center.dx + halfSize, center.dy - halfSize),
+      Offset(center.dx - halfSize, center.dy + halfSize),
+      stroke,
+    );
   }
 }
 
@@ -608,6 +730,80 @@ class FallingItem extends SpriteComponent with TapCallbacks, HasGameRef<MonsterT
   void onTapDown(TapDownEvent event) {
     onTapped(this);
   }
+}
+
+class TapBurst extends PositionComponent {
+  final Color baseColor;
+  final int particleCount;
+  final double particleSize;
+  final double lifetime;
+  final double spreadSpeed;
+  final Random _random = Random();
+
+  final List<_BurstParticle> _particles = [];
+  double _elapsed = 0;
+
+  TapBurst({
+    required Vector2 position,
+    required this.baseColor,
+    required this.particleCount,
+    required this.particleSize,
+    required this.lifetime,
+    required this.spreadSpeed,
+  }) {
+    this.position = position;
+    priority = 30;
+  }
+
+  @override
+  Future<void> onLoad() async {
+    for (var i = 0; i < particleCount; i++) {
+      final angle = _random.nextDouble() * pi * 2;
+      final speed = spreadSpeed * (0.55 + _random.nextDouble() * 0.75);
+      _particles.add(
+        _BurstParticle(
+          velocity: Vector2(cos(angle) * speed, sin(angle) * speed),
+          size: particleSize * (0.6 + _random.nextDouble() * 0.9),
+        ),
+      );
+    }
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _elapsed += dt;
+    if (_elapsed >= lifetime) {
+      removeFromParent();
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    final t = (_elapsed / lifetime).clamp(0.0, 1.0);
+    final alpha = (255 * (1 - t)).clamp(0, 255).toInt();
+    final paint = Paint()
+      ..color = baseColor.withAlpha(alpha)
+      ..style = PaintingStyle.fill;
+
+    for (final p in _particles) {
+      final x = p.velocity.x * _elapsed;
+      final y = p.velocity.y * _elapsed;
+      final radius = p.size * (1 - t * 0.7);
+      canvas.drawCircle(Offset(x, y), radius, paint);
+    }
+  }
+}
+
+class _BurstParticle {
+  final Vector2 velocity;
+  final double size;
+
+  _BurstParticle({
+    required this.velocity,
+    required this.size,
+  });
 }
 
 // Score display component
