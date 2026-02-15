@@ -174,9 +174,14 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static const int goodItemPoints = 8;
   static const int badItemPointsPenalty = 3;
   static const int missedGoodItemPointsPenalty = 4;
+  static const int level2ScoreThreshold = 100;
+  static const int level3ScoreThreshold = 220;
+  static const double levelSpawnBoost = 0.12;
+  static const double levelFallBoost = 12;
   int score = 0;
   int lives = maxLives;
   int bestScore = 0;
+  int level = 1;
   bool isGameOver = false;
   bool isStarted = false;
   bool isPaused = false;
@@ -209,7 +214,15 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     // Add score display
     scoreDisplay = ScoreDisplay()..position = Vector2(20, 24);
     add(scoreDisplay);
-    scoreDisplay.updateHud(score, lives, maxLives, bestScore, forceRepaint: true);
+    scoreDisplay.updateHud(
+      score,
+      lives,
+      maxLives,
+      bestScore,
+      level,
+      _goalText(),
+      forceRepaint: true,
+    );
 
     // Add game over display (hidden initially)
     gameOverDisplay = GameOverDisplay()
@@ -217,7 +230,15 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     add(gameOverDisplay);
 
     await _loadBestScore();
-    scoreDisplay.updateHud(score, lives, maxLives, bestScore, forceRepaint: true);
+    scoreDisplay.updateHud(
+      score,
+      lives,
+      maxLives,
+      bestScore,
+      level,
+      _goalText(),
+      forceRepaint: true,
+    );
     _layoutScene();
   }
 
@@ -277,7 +298,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
         triggerGameOver();
       }
     }
-    scoreDisplay.updateHud(score, lives, maxLives, bestScore);
+    _updateLevelProgression();
+    scoreDisplay.updateHud(score, lives, maxLives, bestScore, level, _goalText());
     item.removeFromParent();
   }
 
@@ -289,11 +311,12 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     lives -= 1;
     score -= missedGoodItemPointsPenalty;
     monster.showOops();
+    _updateLevelProgression();
     if (lives <= 0) {
       triggerGameOver();
       return;
     }
-    scoreDisplay.updateHud(score, lives, maxLives, bestScore);
+    scoreDisplay.updateHud(score, lives, maxLives, bestScore, level, _goalText());
   }
 
   void triggerGameOver() {
@@ -304,13 +327,14 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       bestScore = score;
       _saveBestScore();
     }
-    scoreDisplay.updateHud(score, lives, maxLives, bestScore);
+    scoreDisplay.updateHud(score, lives, maxLives, bestScore, level, _goalText());
     gameOverDisplay.show(score, bestScore, survivalTime);
   }
 
   void restartGame() {
     score = 0;
     lives = maxLives;
+    level = 1;
     isGameOver = false;
     isPaused = false;
     spawnTimer = 0;
@@ -324,7 +348,15 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     
     gameOverDisplay.hide();
     monster.showIdle();
-    scoreDisplay.updateHud(score, lives, maxLives, bestScore, forceRepaint: true);
+    scoreDisplay.updateHud(
+      score,
+      lives,
+      maxLives,
+      bestScore,
+      level,
+      _goalText(),
+      forceRepaint: true,
+    );
   }
 
   void startGame() {
@@ -335,9 +367,42 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     // Force one extra HUD repaint right after start to avoid first-frame glyph fallback glitches.
     Future.delayed(const Duration(milliseconds: 1), () {
       if (!isGameOver) {
-        scoreDisplay.updateHud(score, lives, maxLives, bestScore, forceRepaint: true);
+        scoreDisplay.updateHud(
+          score,
+          lives,
+          maxLives,
+          bestScore,
+          level,
+          _goalText(),
+          forceRepaint: true,
+        );
       }
     });
+  }
+
+  void _updateLevelProgression() {
+    final previousLevel = level;
+    if (score >= level3ScoreThreshold) {
+      level = 3;
+    } else if (score >= level2ScoreThreshold) {
+      level = 2;
+    } else {
+      level = 1;
+    }
+
+    if (level > previousLevel) {
+      currentSpawnInterval = max(minSpawnInterval, currentSpawnInterval - levelSpawnBoost);
+      currentFallSpeed = min(maxFallSpeed, currentFallSpeed + levelFallBoost);
+    } else if (level < previousLevel) {
+      currentSpawnInterval = min(baseSpawnInterval, currentSpawnInterval + levelSpawnBoost);
+      currentFallSpeed = max(baseFallSpeed, currentFallSpeed - levelFallBoost);
+    }
+  }
+
+  String _goalText() {
+    if (level == 1) return 'Goal: reach $level2ScoreThreshold points';
+    if (level == 2) return 'Goal: reach $level3ScoreThreshold points';
+    return 'Goal: survive and beat best score';
   }
 
   void pauseGame() {
@@ -548,6 +613,8 @@ class FallingItem extends SpriteComponent with TapCallbacks, HasGameRef<MonsterT
 // Score display component
 class ScoreDisplay extends PositionComponent {
   late TextComponent scoreText;
+  late TextComponent levelText;
+  late TextComponent goalText;
   late TextComponent bestText;
   late HeartsDisplay heartsDisplay;
 
@@ -555,6 +622,8 @@ class ScoreDisplay extends PositionComponent {
   int _lives = 3;
   int _maxLives = 3;
   int _bestScore = 0;
+  int _level = 1;
+  String _goal = '';
 
   ScoreDisplay();
 
@@ -572,10 +641,34 @@ class ScoreDisplay extends PositionComponent {
       ),
     )..position = Vector2.zero();
 
+    levelText = TextComponent(
+      text: '',
+      textRenderer: TextPaint(
+        style: TextStyle(
+          color: Colors.orangeAccent,
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+          shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+        ),
+      ),
+    )..position = Vector2(0, 34);
+
     heartsDisplay = HeartsDisplay(
       maxLives: _maxLives,
       lives: _lives,
-    )..position = Vector2(0, 36);
+    )..position = Vector2(0, 68);
+
+    goalText = TextComponent(
+      text: '',
+      textRenderer: TextPaint(
+        style: TextStyle(
+          color: Colors.white70,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+        ),
+      ),
+    )..position = Vector2(0, 112);
 
     bestText = TextComponent(
       text: '',
@@ -587,10 +680,12 @@ class ScoreDisplay extends PositionComponent {
           shadows: [Shadow(color: Colors.black, blurRadius: 4)],
         ),
       ),
-    )..position = Vector2(0, 82);
+    )..position = Vector2(0, 144);
 
     add(scoreText);
+    add(levelText);
     add(heartsDisplay);
+    add(goalText);
     add(bestText);
     _applyHud();
   }
@@ -599,19 +694,25 @@ class ScoreDisplay extends PositionComponent {
     int score,
     int lives,
     int maxLives,
-    int bestScore, {
+    int bestScore,
+    int level,
+    String goal, {
     bool forceRepaint = false,
   }) {
     _score = score;
     _lives = lives;
     _maxLives = maxLives;
     _bestScore = bestScore;
+    _level = level;
+    _goal = goal;
     if (!isLoaded) return;
     _applyHud();
   }
 
   void _applyHud() {
     scoreText.text = 'Score: $_score';
+    levelText.text = 'Level $_level';
+    goalText.text = _goal;
     bestText.text = 'Best: $_bestScore';
     heartsDisplay
       ..maxLives = _maxLives
