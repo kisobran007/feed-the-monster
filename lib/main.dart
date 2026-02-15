@@ -195,6 +195,12 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static const double _shakeDuration = 0.14;
   static const double _shakeStrength = 9;
   final Random _fxRandom = Random();
+  final Random _musicRandom = Random();
+  final List<String> _musicTracks = const [
+    'bgm_playful_01.mp3',
+    'bgm_playful_02.mp3',
+  ];
+  bool _musicReady = false;
   static const double monsterAreaRatio = 0.28;
 
   double get gameplayBottomY => size.y * (1 - monsterAreaRatio);
@@ -235,6 +241,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     add(gameOverDisplay);
 
     await _loadBestScore();
+    await _initBackgroundMusic();
     scoreDisplay.updateHud(
       score,
       lives,
@@ -420,6 +427,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     isPaused = false;
     resumeEngine();
     restartGame();
+    _playRandomBackgroundTrack();
     // Force one extra HUD repaint right after start to avoid first-frame glyph fallback glitches.
     Future.delayed(const Duration(milliseconds: 1), () {
       if (!isGameOver) {
@@ -469,12 +477,18 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (!isStarted || isGameOver || isPaused) return;
     isPaused = true;
     pauseEngine();
+    if (_musicReady) {
+      FlameAudio.bgm.pause();
+    }
   }
 
   void resumeGame() {
     if (!isStarted || isGameOver || !isPaused) return;
     isPaused = false;
     resumeEngine();
+    if (_musicReady) {
+      FlameAudio.bgm.resume();
+    }
   }
 
   Future<void> _loadBestScore() async {
@@ -487,6 +501,20 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     await prefs.setInt('best_score', bestScore);
   }
 
+  Future<void> _initBackgroundMusic() async {
+    FlameAudio.audioCache.prefix = 'assets/sounds/';
+    await FlameAudio.audioCache.loadAll(_musicTracks);
+    FlameAudio.bgm.initialize();
+    _musicReady = true;
+  }
+
+  void _playRandomBackgroundTrack() {
+    if (!_musicReady) return;
+    final track = _musicTracks[_musicRandom.nextInt(_musicTracks.length)];
+    FlameAudio.bgm.stop();
+    FlameAudio.bgm.play(track, volume: 0.28);
+  }
+
   @override
   void onTapDown(TapDownEvent event) {
     // Tap handled by GameOverDisplay
@@ -494,6 +522,12 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   @override
   Color backgroundColor() => const Color(0xFF2A2A2A);
+
+  @override
+  void onRemove() {
+    FlameAudio.bgm.stop();
+    super.onRemove();
+  }
 
   @override
   void render(Canvas canvas) {
