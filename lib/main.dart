@@ -162,14 +162,18 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   late RectangleComponent playAreaBackground;
   late RectangleComponent monsterAreaBackground;
   late RectangleComponent areaDivider;
-  static const int maxLives = 3;
-  static const double baseSpawnInterval = 1.5;
-  static const double minSpawnInterval = 0.7;
-  static const double spawnIntervalStep = 0.12;
-  static const double difficultyTickSeconds = 12;
-  static const double baseFallSpeed = 100;
-  static const double maxFallSpeed = 220;
-  static const double fallSpeedStep = 10;
+  static const int maxLives = 4;
+  static const double baseSpawnInterval = 1.8;
+  static const double minSpawnInterval = 0.95;
+  static const double spawnIntervalStep = 0.08;
+  static const double difficultyTickSeconds = 15;
+  static const double baseFallSpeed = 85;
+  static const double maxFallSpeed = 170;
+  static const double fallSpeedStep = 8;
+  static const double goodItemChance = 0.65;
+  static const int goodItemPoints = 8;
+  static const int badItemPointsPenalty = 3;
+  static const int missedGoodItemPointsPenalty = 4;
   int score = 0;
   int lives = maxLives;
   int bestScore = 0;
@@ -241,7 +245,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   void spawnRandomItem() {
     final random = Random();
-    final isGood = random.nextBool(); // 50% chance for good/bad
+    final isGood = random.nextDouble() < goodItemChance;
     final itemType = isGood
         ? ['apple', 'banana', 'cookie', 'strawberry'][random.nextInt(4)]
         : ['bad_shoe', 'bad_rock', 'bad_soap', 'bad_brick'][random.nextInt(2)];
@@ -250,6 +254,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       itemType: itemType,
       isGood: isGood,
       onTapped: handleItemTap,
+      onMissed: handleItemMissed,
       fallSpeed: currentFallSpeed,
     )
       ..position = Vector2(random.nextDouble() * (size.x - 90) + 45, -50)
@@ -262,10 +267,10 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (isGameOver) return;
 
     if (item.isGood) {
-      score += 10;
+      score += goodItemPoints;
       monster.showHappy();
     } else {
-      score -= 5;
+      score -= badItemPointsPenalty;
       lives -= 1;
       monster.showOops();
       if (lives <= 0) {
@@ -274,6 +279,21 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     }
     scoreDisplay.updateHud(score, lives, maxLives, bestScore);
     item.removeFromParent();
+  }
+
+  void handleItemMissed(FallingItem item) {
+    if (isGameOver) return;
+    if (!item.isGood) return;
+
+    // Missing healthy food costs one life and a small score penalty.
+    lives -= 1;
+    score -= missedGoodItemPointsPenalty;
+    monster.showOops();
+    if (lives <= 0) {
+      triggerGameOver();
+      return;
+    }
+    scoreDisplay.updateHud(score, lives, maxLives, bestScore);
   }
 
   void triggerGameOver() {
@@ -489,6 +509,7 @@ class FallingItem extends SpriteComponent with TapCallbacks, HasGameRef<MonsterT
   final String itemType;
   final bool isGood;
   final Function(FallingItem) onTapped;
+  final Function(FallingItem) onMissed;
   final double fallSpeed; // pixels per second
   static const double _itemSize = 125;
 
@@ -496,6 +517,7 @@ class FallingItem extends SpriteComponent with TapCallbacks, HasGameRef<MonsterT
     required this.itemType,
     required this.isGood,
     required this.onTapped,
+    required this.onMissed,
     required this.fallSpeed,
   });
 
@@ -512,6 +534,7 @@ class FallingItem extends SpriteComponent with TapCallbacks, HasGameRef<MonsterT
 
     // Remove if off screen
     if (position.y > gameRef.gameplayBottomY + 50) {
+      onMissed(this);
       removeFromParent();
     }
   }
