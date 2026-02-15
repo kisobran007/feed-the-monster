@@ -566,9 +566,9 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     FlameAudio.audioCache.prefix = 'assets/sounds/';
     await FlameAudio.audioCache.loadAll([..._happySounds, ..._sadSounds]);
 
-    idleSprite = await gameRef.loadSprite('characters/monster_idle.png');
-    happySprite = await gameRef.loadSprite('characters/monster_happy.png');
-    sadSprite = await gameRef.loadSprite('characters/monster_sad.png');
+    idleSprite = await gameRef.loadSprite('characters/monster2_idle.png');
+    happySprite = await gameRef.loadSprite('characters/monster2_yum.png');
+    sadSprite = await gameRef.loadSprite('characters/monster2_yack.png');
     sprite = idleSprite;
     size = Vector2.all(_idleSize);
 
