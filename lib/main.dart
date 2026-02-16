@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 
 void main() {
-  runApp(GameApp());
+  runApp(const GameApp());
 }
 
 class GameApp extends StatelessWidget {
@@ -15,10 +15,10 @@ class GameApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        body: const GameScreen(),
+        body: GameScreen(),
       ),
     );
   }
@@ -162,6 +162,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   late RectangleComponent playAreaBackground;
   late RectangleComponent monsterAreaBackground;
   late RectangleComponent areaDivider;
+  late SpriteComponent background;
   static const int maxLives = 4;
   static const double baseSpawnInterval = 1.8;
   static const double minSpawnInterval = 0.95;
@@ -209,12 +210,12 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   @override
   Future<void> onLoad() async {
-    playAreaBackground = RectangleComponent(priority: -30);
-    monsterAreaBackground = RectangleComponent(priority: -20);
-    areaDivider = RectangleComponent(priority: -10);
-    add(playAreaBackground);
-    add(monsterAreaBackground);
-    add(areaDivider);
+    final bgSprite = await loadSprite('backgrounds/bg_meadow.png');
+    background = SpriteComponent(
+      sprite: bgSprite,
+      priority: -100,
+    );
+    add(background);
 
     // Add monster in dedicated bottom area
     monster = Monster()
@@ -555,20 +556,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     final bottomY = gameplayBottomY;
     final overlaySize = Vector2(size.x * 0.92, min(520.0, bottomY * 0.95));
 
-    playAreaBackground
+    background
       ..position = Vector2.zero()
-      ..size = Vector2(size.x, bottomY)
-      ..paint = (Paint()..color = const Color(0xFF1E1E1E));
-
-    monsterAreaBackground
-      ..position = Vector2(0, bottomY)
-      ..size = Vector2(size.x, size.y - bottomY)
-      ..paint = (Paint()..color = const Color(0xFF103A2F));
-
-    areaDivider
-      ..position = Vector2(0, bottomY - 2)
-      ..size = Vector2(size.x, 4)
-      ..paint = (Paint()..color = const Color(0x66FFFFFF));
+      ..size = size;
 
     monster.position = Vector2(size.x / 2, monsterAreaTopY + (monsterAreaHeight * 0.6));
     scoreDisplay.position = Vector2(20, 24);
@@ -913,7 +903,7 @@ class ScoreDisplay extends PositionComponent {
     scoreText = TextComponent(
       text: '',
       textRenderer: TextPaint(
-        style: TextStyle(
+        style: const TextStyle(
           color: Colors.white,
           fontSize: 26,
           fontWeight: FontWeight.bold,
@@ -925,7 +915,7 @@ class ScoreDisplay extends PositionComponent {
     levelText = TextComponent(
       text: '',
       textRenderer: TextPaint(
-        style: TextStyle(
+        style: const TextStyle(
           color: Colors.orangeAccent,
           fontSize: 24,
           fontWeight: FontWeight.w700,
@@ -942,7 +932,7 @@ class ScoreDisplay extends PositionComponent {
     goalText = TextComponent(
       text: '',
       textRenderer: TextPaint(
-        style: TextStyle(
+        style: const TextStyle(
           color: Colors.white70,
           fontSize: 20,
           fontWeight: FontWeight.w600,
@@ -954,7 +944,7 @@ class ScoreDisplay extends PositionComponent {
     bestText = TextComponent(
       text: '',
       textRenderer: TextPaint(
-        style: TextStyle(
+        style: const TextStyle(
           color: Colors.white,
           fontSize: 24,
           fontWeight: FontWeight.w700,
@@ -1088,7 +1078,7 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
     gameOverText = TextComponent(
       text: 'Game Over!',
       textRenderer: TextPaint(
-        style: TextStyle(
+        style: const TextStyle(
           color: Colors.red,
           fontSize: 48,
           fontWeight: FontWeight.bold,
@@ -1101,7 +1091,7 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
     finalScoreText = TextComponent(
       text: '',
       textRenderer: TextPaint(
-        style: TextStyle(
+        style: const TextStyle(
           color: Colors.white,
           fontSize: 32,
         ),
@@ -1113,7 +1103,7 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
     bestScoreText = TextComponent(
       text: '',
       textRenderer: TextPaint(
-        style: TextStyle(
+        style: const TextStyle(
           color: Colors.white,
           fontSize: 28,
         ),
@@ -1125,7 +1115,7 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
     survivalTimeText = TextComponent(
       text: '',
       textRenderer: TextPaint(
-        style: TextStyle(
+        style: const TextStyle(
           color: Colors.white70,
           fontSize: 24,
         ),
@@ -1137,7 +1127,7 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
     restartText = TextComponent(
       text: 'Tap to Restart',
       textRenderer: TextPaint(
-        style: TextStyle(
+        style: const TextStyle(
           color: Colors.yellow,
           fontSize: 28,
         ),
