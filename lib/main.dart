@@ -574,9 +574,9 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
   String currentState = 'idle';
   int _reactionId = 0;
   static const Duration _reactionDuration = Duration(milliseconds: 500);
-  static const double _idleSize = 190;
-  static const double _happySize = 210;
-  static const double _sadSize = 170;
+  static const double _idleSize = 240;
+  static const double _happySize = 265;
+  static const double _sadSize = 215;
   final Random _random = Random();
   final List<String> _happySounds = ['happy_wee.mp3'];
   final List<String> _sadSounds = ['sad_aww.mp3'];
@@ -584,6 +584,9 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
   late Sprite idleSprite;
   late Sprite happySprite;
   late Sprite sadSprite;
+  double _idleTime = 0;
+  static const double _idleAmplitude = 0.035; // 3.5%
+  static const double _idleSpeed = 2.5;
 
   @override
   Future<void> onLoad() async {
@@ -600,6 +603,21 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
       ..anchor = Anchor.center;
     add(reactionIndicator);
     _layoutReactionIndicator();
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+
+    if (currentState == 'idle') {
+      _idleTime += dt;
+      final scaleValue =
+          1 + _idleAmplitude * sin(_idleTime * _idleSpeed);
+      scale = Vector2.all(scaleValue);
+    } else {
+      // reset scale when not idle
+      scale = Vector2.all(1);
+    }
   }
 
   void showHappy() {
