@@ -175,14 +175,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static const int goodItemPoints = 8;
   static const int badItemPointsPenalty = 3;
   static const int missedGoodItemPointsPenalty = 4;
-  static const int level2ScoreThreshold = 100;
-  static const int level3ScoreThreshold = 220;
-  static const double levelSpawnBoost = 0.12;
-  static const double levelFallBoost = 12;
   int score = 0;
   int lives = maxLives;
   int bestScore = 0;
-  int level = 1;
   int goodStreak = 0;
   bool isGameOver = false;
   bool isStarted = false;
@@ -206,7 +201,17 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   double get gameplayBottomY => size.y * (1 - monsterAreaRatio);
   double get monsterAreaTopY => gameplayBottomY;
-  double get monsterAreaHeight => size.y - monsterAreaTopY;
+  double get monsterAreaHeight => size.y - monsterAreaTopY;  
+
+  GameWorld currentWorld = GameWorld.world1;
+
+  static const int world2ScoreThreshold = 300;
+
+  List<String> world1Good = ['apple', 'banana', 'cookie', 'strawberry'];
+  List<String> world1Bad = ['bad_shoe', 'bad_rock', 'bad_soap', 'bad_brick'];
+
+  List<String> world2Good = ['cupcake', 'lollipop'];
+  List<String> world2Bad = ['chili', 'onion'];
 
   @override
   Future<void> onLoad() async {
@@ -231,7 +236,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       lives,
       maxLives,
       bestScore,
-      level,
+      currentWorld,
       _goalText(),
       forceRepaint: true,
     );
@@ -248,7 +253,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       lives,
       maxLives,
       bestScore,
-      level,
+      currentWorld,
       _goalText(),
       forceRepaint: true,
     );
@@ -284,9 +289,16 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   void spawnRandomItem() {
     final random = Random();
     final isGood = random.nextDouble() < goodItemChance;
+
+    final goodList =
+        currentWorld == GameWorld.world1 ? world1Good : world2Good;
+
+    final badList =
+        currentWorld == GameWorld.world1 ? world1Bad : world2Bad;
+
     final itemType = isGood
-        ? ['apple', 'banana', 'cookie', 'strawberry'][random.nextInt(4)]
-        : ['bad_shoe', 'bad_rock', 'bad_soap', 'bad_brick'][random.nextInt(2)];
+        ? goodList[random.nextInt(goodList.length)]
+        : badList[random.nextInt(badList.length)];
 
     final item = FallingItem(
       itemType: itemType,
@@ -300,6 +312,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
     add(item);
   }
+
 
   void handleItemTap(FallingItem item) {
     if (isGameOver) return;
@@ -360,8 +373,15 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
         triggerGameOver();
       }
     }
-    _updateLevelProgression();
-    scoreDisplay.updateHud(score, lives, maxLives, bestScore, level, _goalText());
+    _checkWorldProgression();
+    scoreDisplay.updateHud(
+      score,
+      lives,
+      maxLives,
+      bestScore,
+      currentWorld,
+      _goalText(),
+    );
     item.removeFromParent();
   }
 
@@ -374,12 +394,19 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     lives -= 1;
     score -= missedGoodItemPointsPenalty;
     monster.showOops();
-    _updateLevelProgression();
+    _checkWorldProgression();
     if (lives <= 0) {
       triggerGameOver();
       return;
     }
-    scoreDisplay.updateHud(score, lives, maxLives, bestScore, level, _goalText());
+    scoreDisplay.updateHud(
+      score,
+      lives,
+      maxLives,
+      bestScore,
+      currentWorld,
+      _goalText(),
+    );
   }
 
   void triggerGameOver() {
@@ -390,14 +417,20 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       bestScore = score;
       _saveBestScore();
     }
-    scoreDisplay.updateHud(score, lives, maxLives, bestScore, level, _goalText());
+    scoreDisplay.updateHud(
+      score,
+      lives,
+      maxLives,
+      bestScore,
+      currentWorld,
+      _goalText(),
+    );
     gameOverDisplay.show(score, bestScore, survivalTime);
   }
 
   void restartGame() {
     score = 0;
     lives = maxLives;
-    level = 1;
     goodStreak = 0;
     isGameOver = false;
     isPaused = false;
@@ -406,6 +439,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     _difficultyTimer = 0;
     currentSpawnInterval = baseSpawnInterval;
     currentFallSpeed = baseFallSpeed;
+    currentWorld = GameWorld.world1;
     
     // Remove all falling items
     children.whereType<FallingItem>().toList().forEach((item) => item.removeFromParent());
@@ -417,10 +451,11 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       lives,
       maxLives,
       bestScore,
-      level,
+      currentWorld,
       _goalText(),
       forceRepaint: true,
     );
+    _applyWorldTheme(currentWorld);
   }
 
   void startGame() {
@@ -437,7 +472,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
           lives,
           maxLives,
           bestScore,
-          level,
+          currentWorld,
           _goalText(),
           forceRepaint: true,
         );
@@ -445,28 +480,68 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     });
   }
 
-  void _updateLevelProgression() {
-    final previousLevel = level;
-    if (score >= level3ScoreThreshold) {
-      level = 3;
-    } else if (score >= level2ScoreThreshold) {
-      level = 2;
-    } else {
-      level = 1;
-    }
-
-    if (level > previousLevel) {
-      currentSpawnInterval = max(minSpawnInterval, currentSpawnInterval - levelSpawnBoost);
-      currentFallSpeed = min(maxFallSpeed, currentFallSpeed + levelFallBoost);
-    } else if (level < previousLevel) {
-      currentSpawnInterval = min(baseSpawnInterval, currentSpawnInterval + levelSpawnBoost);
-      currentFallSpeed = max(baseFallSpeed, currentFallSpeed - levelFallBoost);
+  void _checkWorldProgression() {
+    if (score >= world2ScoreThreshold &&
+        currentWorld == GameWorld.world1) {
+      _transitionToWorld(GameWorld.world2);
     }
   }
 
+  void _transitionToWorld(GameWorld newWorld) {
+    pauseEngine();
+    isPaused = true;
+
+    // Celebration moment
+    monster.showStreak();
+
+    add(
+      TapBurst(
+        position: Vector2(size.x / 2, size.y / 2),
+        baseColor: const Color(0xFFFF80AB),
+        particleCount: 40,
+        particleSize: 14,
+        lifetime: 0.8,
+        spreadSpeed: 250,
+      ),
+    );
+
+    currentWorld = newWorld;
+
+    _applyWorldTheme(newWorld);
+    scoreDisplay.updateHud(
+      score,
+      lives,
+      maxLives,
+      bestScore,
+      currentWorld,
+      _goalText(),
+    );
+
+    Future.delayed(const Duration(seconds: 2), () {
+      resumeEngine();
+      isPaused = false;
+    });
+  }
+
+  Future<void> _applyWorldTheme(GameWorld world) async {
+    switch (world) {
+      case GameWorld.world1:
+        background.sprite =
+            await loadSprite('backgrounds/bg_meadow.png');
+        break;
+
+      case GameWorld.world2:
+        background.sprite =
+            await loadSprite('backgrounds/bg_world2.png');
+        break;
+    }
+    await monster.loadWorldSkin(world);
+  }
+
   String _goalText() {
-    if (level == 1) return 'Goal: reach $level2ScoreThreshold points';
-    if (level == 2) return 'Goal: reach $level3ScoreThreshold points';
+    if (currentWorld == GameWorld.world1) {
+      return 'Goal: reach $world2ScoreThreshold points to unlock World 2';
+    }
     return 'Goal: survive and beat best score';
   }
 
@@ -587,6 +662,7 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
   double _idleTime = 0;
   static const double _idleAmplitude = 0.035; // 3.5%
   static const double _idleSpeed = 2.5;
+  GameWorld currentWorld = GameWorld.world1;
 
   @override
   Future<void> onLoad() async {
@@ -603,6 +679,32 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
       ..anchor = Anchor.center;
     add(reactionIndicator);
     _layoutReactionIndicator();
+  }
+
+  Future<void> loadWorldSkin(GameWorld world) async {
+    currentWorld = world;
+
+    switch (world) {
+      case GameWorld.world1:
+        idleSprite =
+            await gameRef.loadSprite('characters/monster2_idle.png');
+        happySprite =
+            await gameRef.loadSprite('characters/monster2_yum.png');
+        sadSprite =
+            await gameRef.loadSprite('characters/monster2_yack.png');
+        break;
+
+      case GameWorld.world2:
+        idleSprite =
+            await gameRef.loadSprite('characters/monster_idle.png');
+        happySprite =
+            await gameRef.loadSprite('characters/monster_happy.png');
+        sadSprite =
+            await gameRef.loadSprite('characters/monster_sad.png');
+        break;
+    }
+
+    showIdle();
   }
 
   @override
@@ -778,6 +880,11 @@ class MonsterReactionIndicator extends PositionComponent {
   }
 }
 
+enum GameWorld {
+  world1,
+  world2,
+}
+
 // Falling item component
 class FallingItem extends SpriteComponent with TapCallbacks, HasGameRef<MonsterTapGame> {
   final String itemType;
@@ -902,7 +1009,7 @@ class _BurstParticle {
 // Score display component
 class ScoreDisplay extends PositionComponent {
   late TextComponent scoreText;
-  late TextComponent levelText;
+  late TextComponent worldText;
   late TextComponent goalText;
   late TextComponent bestText;
   late HeartsDisplay heartsDisplay;
@@ -911,7 +1018,7 @@ class ScoreDisplay extends PositionComponent {
   int _lives = 3;
   int _maxLives = 3;
   int _bestScore = 0;
-  int _level = 1;
+  GameWorld _world = GameWorld.world1;
   String _goal = '';
 
   ScoreDisplay();
@@ -930,7 +1037,7 @@ class ScoreDisplay extends PositionComponent {
       ),
     )..position = Vector2.zero();
 
-    levelText = TextComponent(
+    worldText = TextComponent(
       text: '',
       textRenderer: TextPaint(
         style: const TextStyle(
@@ -972,7 +1079,7 @@ class ScoreDisplay extends PositionComponent {
     )..position = Vector2(0, 144);
 
     add(scoreText);
-    add(levelText);
+    add(worldText);
     add(heartsDisplay);
     add(goalText);
     add(bestText);
@@ -984,7 +1091,7 @@ class ScoreDisplay extends PositionComponent {
     int lives,
     int maxLives,
     int bestScore,
-    int level,
+    GameWorld world,
     String goal, {
     bool forceRepaint = false,
   }) {
@@ -992,7 +1099,7 @@ class ScoreDisplay extends PositionComponent {
     _lives = lives;
     _maxLives = maxLives;
     _bestScore = bestScore;
-    _level = level;
+    _world = world;
     _goal = goal;
     if (!isLoaded) return;
     _applyHud();
@@ -1000,7 +1107,7 @@ class ScoreDisplay extends PositionComponent {
 
   void _applyHud() {
     scoreText.text = 'Score: $_score';
-    levelText.text = 'Level $_level';
+    worldText.text = _world == GameWorld.world1 ? 'World 1' : 'World 2';
     goalText.text = _goal;
     bestText.text = 'Best: $_bestScore';
     heartsDisplay
