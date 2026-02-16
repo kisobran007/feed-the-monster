@@ -182,6 +182,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   bool isGameOver = false;
   bool isStarted = false;
   bool isPaused = false;
+  bool isTransitioning = false;
   double survivalTime = 0;
   double _difficultyTimer = 0;
   double currentSpawnInterval = baseSpawnInterval;
@@ -268,7 +269,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       _shakeTime = max(0, _shakeTime - dt);
     }
     
-    if (!isStarted || isGameOver || isPaused) return;
+    if (!isStarted || isGameOver || isPaused || isTransitioning) return;
 
     survivalTime += dt;
     _difficultyTimer += dt;
@@ -315,7 +316,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
 
   void handleItemTap(FallingItem item) {
-    if (isGameOver) return;
+    if (isGameOver || isTransitioning) return;
     final tapPosition = item.position.clone();
 
     if (item.isGood) {
@@ -386,7 +387,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   void handleItemMissed(FallingItem item) {
-    if (isGameOver) return;
+    if (isGameOver || isTransitioning) return;
     if (!item.isGood) return;
 
     // Missing healthy food costs one life and a small score penalty.
@@ -434,6 +435,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     goodStreak = 0;
     isGameOver = false;
     isPaused = false;
+    isTransitioning = false;
     spawnTimer = 0;
     survivalTime = 0;
     _difficultyTimer = 0;
@@ -488,8 +490,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   void _transitionToWorld(GameWorld newWorld) {
-    pauseEngine();
-    isPaused = true;
+    if (isTransitioning) return;
+    isTransitioning = true;
 
     // Celebration moment
     monster.showStreak();
@@ -505,22 +507,26 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       ),
     );
 
-    currentWorld = newWorld;
-
-    _applyWorldTheme(newWorld);
-    scoreDisplay.updateHud(
-      score,
-      lives,
-      maxLives,
-      bestScore,
-      currentWorld,
-      _goalText(),
+    add(
+      WorldTransitionOverlay(
+        nextWorld: newWorld,
+        onSwitchWorld: () {
+          currentWorld = newWorld;
+          _applyWorldTheme(newWorld);
+          scoreDisplay.updateHud(
+            score,
+            lives,
+            maxLives,
+            bestScore,
+            currentWorld,
+            _goalText(),
+          );
+        },
+        onCompleted: () {
+          isTransitioning = false;
+        },
+      ),
     );
-
-    Future.delayed(const Duration(seconds: 2), () {
-      resumeEngine();
-      isPaused = false;
-    });
   }
 
   Future<void> _applyWorldTheme(GameWorld world) async {
@@ -1004,6 +1010,79 @@ class _BurstParticle {
     required this.size,
     required this.color,
   });
+}
+
+class WorldTransitionOverlay extends PositionComponent
+    with HasGameRef<MonsterTapGame> {
+  final GameWorld nextWorld;
+  final VoidCallback onSwitchWorld;
+  final VoidCallback onCompleted;
+  final double durationSeconds;
+
+  double _elapsed = 0;
+  bool _didSwitch = false;
+
+  WorldTransitionOverlay({
+    required this.nextWorld,
+    required this.onSwitchWorld,
+    required this.onCompleted,
+    this.durationSeconds = 1.0,
+  }) {
+    priority = 200;
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _elapsed += dt;
+    final t = (_elapsed / durationSeconds).clamp(0.0, 1.0);
+
+    if (!_didSwitch && t >= 0.5) {
+      _didSwitch = true;
+      onSwitchWorld();
+    }
+
+    if (t >= 1.0) {
+      onCompleted();
+      removeFromParent();
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    final t = (_elapsed / durationSeconds).clamp(0.0, 1.0);
+    final fade = t < 0.5
+        ? Curves.easeInOut.transform(t / 0.5)
+        : Curves.easeInOut.transform((1 - t) / 0.5);
+    final overlayOpacity = (0.65 * fade).clamp(0.0, 0.65);
+
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, gameRef.size.x, gameRef.size.y),
+      Paint()..color = Colors.black.withValues(alpha: overlayOpacity),
+    );
+
+    if (fade > 0.2) {
+      final worldLabel = nextWorld == GameWorld.world2 ? 'World 2' : 'World 1';
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: worldLabel,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 42,
+            fontWeight: FontWeight.bold,
+            shadows: [Shadow(color: Colors.black, blurRadius: 8)],
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final offset = Offset(
+        (gameRef.size.x - textPainter.width) / 2,
+        (gameRef.size.y - textPainter.height) / 2,
+      );
+      textPainter.paint(canvas, offset);
+    }
+  }
 }
 
 // Score display component
