@@ -1189,8 +1189,31 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
   @override
   void renderTree(Canvas canvas) {
     if (!isVisible) return;
+
+    final fullRect = Rect.fromLTWH(
+      0,
+      0,
+      gameRef.size.x,
+      gameRef.size.y,
+    );
+
+    final gradient = RadialGradient(
+      center: Alignment.center,
+      radius: 0.9,
+      colors: [
+        Colors.black.withValues(alpha: 0.15),
+        Colors.black.withValues(alpha: 0.75),
+      ],
+      stops: const [0.4, 1.0],
+    );
+
+    final paint = Paint()..shader = gradient.createShader(fullRect);
+    canvas.drawRect(fullRect, paint);
     super.renderTree(canvas);
   }
+
+
+
 
   @override
   void onTapDown(TapDownEvent event) {
