@@ -1,5 +1,19 @@
 part of '../../main.dart';
 class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
+  static const String _monsterId = 'monster_main';
+  static const Map<GameWorld, Map<String, String>> _skinAssetPaths = {
+    GameWorld.world1: {
+      'idle': 'characters/world1/$_monsterId/idle.png',
+      'happy': 'characters/world1/$_monsterId/happy.png',
+      'sad': 'characters/world1/$_monsterId/sad.png',
+    },
+    GameWorld.world2: {
+      'idle': 'characters/world2/$_monsterId/idle.png',
+      'happy': 'characters/world2/$_monsterId/happy.png',
+      'sad': 'characters/world2/$_monsterId/sad.png',
+    },
+  };
+
   String currentState = 'idle';
   int _reactionId = 0;
   static const Duration _reactionDuration = Duration(milliseconds: 500);
@@ -23,9 +37,7 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     FlameAudio.audioCache.prefix = 'assets/sounds/';
     await FlameAudio.audioCache.loadAll([..._happySounds, ..._sadSounds]);
 
-    idleSprite = await game.loadSprite('characters/monster2_idle.png');
-    happySprite = await game.loadSprite('characters/monster2_yum.png');
-    sadSprite = await game.loadSprite('characters/monster2_yack.png');
+    await _loadSkinSprites(currentWorld);
     sprite = idleSprite;
     size = Vector2.all(_idleSize);
 
@@ -37,28 +49,19 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
 
   Future<void> loadWorldSkin(GameWorld world) async {
     currentWorld = world;
-
-    switch (world) {
-      case GameWorld.world1:
-        idleSprite =
-            await game.loadSprite('characters/monster2_idle.png');
-        happySprite =
-            await game.loadSprite('characters/monster2_yum.png');
-        sadSprite =
-            await game.loadSprite('characters/monster2_yack.png');
-        break;
-
-      case GameWorld.world2:
-        idleSprite =
-            await game.loadSprite('characters/monster_idle.png');
-        happySprite =
-            await game.loadSprite('characters/monster_happy.png');
-        sadSprite =
-            await game.loadSprite('characters/monster_sad.png');
-        break;
-    }
+    await _loadSkinSprites(world);
 
     showIdle();
+  }
+
+  Future<void> _loadSkinSprites(GameWorld world) async {
+    final skinPaths = _skinAssetPaths[world];
+    if (skinPaths == null) {
+      throw StateError('Missing skin path config for world: $world');
+    }
+    idleSprite = await game.loadSprite(skinPaths['idle']!);
+    happySprite = await game.loadSprite(skinPaths['happy']!);
+    sadSprite = await game.loadSprite(skinPaths['sad']!);
   }
 
   @override
