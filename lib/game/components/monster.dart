@@ -7,8 +7,8 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
   static const double _happySize = 265;
   static const double _sadSize = 215;
   final Random _random = Random();
-  final List<String> _happySounds = ['happy_wee.mp3'];
-  final List<String> _sadSounds = ['sad_aww.mp3'];
+  final List<String> _happySounds = ['happy_1.mp3', 'happy_2.mp3'];
+  final List<String> _sadSounds = ['sad_1.mp3', 'sad_2.mp3'];
   late MonsterReactionIndicator reactionIndicator;
   late Sprite idleSprite;
   late Sprite happySprite;
