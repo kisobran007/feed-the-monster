@@ -1,5 +1,5 @@
 part of '../../main.dart';
-class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<MonsterTapGame> {
+class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameReference<MonsterTapGame> {
   late TextComponent gameOverText;
   late TextComponent finalScoreText;
   late TextComponent bestScoreText;
@@ -111,8 +111,8 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
     final fullRect = Rect.fromLTWH(
       0,
       0,
-      gameRef.size.x,
-      gameRef.size.y,
+      game.size.x,
+      game.size.y,
     );
 
     final gradient = RadialGradient(
@@ -139,7 +139,7 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRef<Mo
       final localPoint = event.localPosition;
       // Check if tap is near restart text.
       if ((localPoint.y - restartText.position.y).abs() < 36) {
-        gameRef.restartGame();
+        game.restartGame();
       }
     }
   }

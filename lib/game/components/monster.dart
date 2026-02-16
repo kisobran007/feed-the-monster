@@ -1,5 +1,5 @@
 part of '../../main.dart';
-class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
+class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
   String currentState = 'idle';
   int _reactionId = 0;
   static const Duration _reactionDuration = Duration(milliseconds: 500);
@@ -23,9 +23,9 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     FlameAudio.audioCache.prefix = 'assets/sounds/';
     await FlameAudio.audioCache.loadAll([..._happySounds, ..._sadSounds]);
 
-    idleSprite = await gameRef.loadSprite('characters/monster2_idle.png');
-    happySprite = await gameRef.loadSprite('characters/monster2_yum.png');
-    sadSprite = await gameRef.loadSprite('characters/monster2_yack.png');
+    idleSprite = await game.loadSprite('characters/monster2_idle.png');
+    happySprite = await game.loadSprite('characters/monster2_yum.png');
+    sadSprite = await game.loadSprite('characters/monster2_yack.png');
     sprite = idleSprite;
     size = Vector2.all(_idleSize);
 
@@ -41,20 +41,20 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     switch (world) {
       case GameWorld.world1:
         idleSprite =
-            await gameRef.loadSprite('characters/monster2_idle.png');
+            await game.loadSprite('characters/monster2_idle.png');
         happySprite =
-            await gameRef.loadSprite('characters/monster2_yum.png');
+            await game.loadSprite('characters/monster2_yum.png');
         sadSprite =
-            await gameRef.loadSprite('characters/monster2_yack.png');
+            await game.loadSprite('characters/monster2_yack.png');
         break;
 
       case GameWorld.world2:
         idleSprite =
-            await gameRef.loadSprite('characters/monster_idle.png');
+            await game.loadSprite('characters/monster_idle.png');
         happySprite =
-            await gameRef.loadSprite('characters/monster_happy.png');
+            await game.loadSprite('characters/monster_happy.png');
         sadSprite =
-            await gameRef.loadSprite('characters/monster_sad.png');
+            await game.loadSprite('characters/monster_sad.png');
         break;
     }
 
@@ -81,6 +81,7 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     _reactionId += 1;
     final currentId = _reactionId;
     sprite = happySprite;
+    _playReactionSound(_happySounds);
     reactionIndicator.showHappy();
     size = Vector2.all(_happySize);
     _layoutReactionIndicator();
@@ -94,6 +95,7 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     _reactionId += 1;
     final currentId = _reactionId;
     sprite = sadSprite;
+    _playReactionSound(_sadSounds);
     reactionIndicator.showOops();
     size = Vector2.all(_sadSize);
     _layoutReactionIndicator();
@@ -114,6 +116,7 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     _reactionId += 1;
     currentState = 'game_over';
     sprite = sadSprite;
+    _playReactionSound(_sadSounds);
     reactionIndicator.showGameOver();
     size = Vector2.all(_sadSize);
     _layoutReactionIndicator();
@@ -124,6 +127,7 @@ class Monster extends SpriteComponent with HasGameRef<MonsterTapGame> {
     _reactionId += 1;
     final currentId = _reactionId;
     sprite = happySprite;
+    _playReactionSound(_happySounds);
     reactionIndicator.showStreak();
     size = Vector2.all(_happySize + 12);
     _layoutReactionIndicator();

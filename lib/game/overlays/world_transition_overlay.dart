@@ -1,6 +1,6 @@
 part of '../../main.dart';
 class WorldTransitionOverlay extends PositionComponent
-    with HasGameRef<MonsterTapGame> {
+    with HasGameReference<MonsterTapGame> {
   final GameWorld nextWorld;
   final VoidCallback onSwitchWorld;
   final VoidCallback onCompleted;
@@ -45,7 +45,7 @@ class WorldTransitionOverlay extends PositionComponent
     final overlayOpacity = (0.65 * fade).clamp(0.0, 0.65);
 
     canvas.drawRect(
-      Rect.fromLTWH(0, 0, gameRef.size.x, gameRef.size.y),
+      Rect.fromLTWH(0, 0, game.size.x, game.size.y),
       Paint()..color = Colors.black.withValues(alpha: overlayOpacity),
     );
 
@@ -64,8 +64,8 @@ class WorldTransitionOverlay extends PositionComponent
         textDirection: TextDirection.ltr,
       )..layout();
       final offset = Offset(
-        (gameRef.size.x - textPainter.width) / 2,
-        (gameRef.size.y - textPainter.height) / 2,
+        (game.size.x - textPainter.width) / 2,
+        (game.size.y - textPainter.height) / 2,
       );
       textPainter.paint(canvas, offset);
     }

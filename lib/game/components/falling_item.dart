@@ -1,5 +1,5 @@
 part of '../../main.dart';
-class FallingItem extends SpriteComponent with TapCallbacks, HasGameRef<MonsterTapGame> {
+class FallingItem extends SpriteComponent with TapCallbacks, HasGameReference<MonsterTapGame> {
   final String itemType;
   final bool isGood;
   final Function(FallingItem) onTapped;
@@ -17,7 +17,7 @@ class FallingItem extends SpriteComponent with TapCallbacks, HasGameRef<MonsterT
 
   @override
   Future<void> onLoad() async {
-    sprite = await gameRef.loadSprite('items/$itemType.png');
+    sprite = await game.loadSprite('items/$itemType.png');
     size = Vector2.all(_itemSize);
   }
 
@@ -27,7 +27,7 @@ class FallingItem extends SpriteComponent with TapCallbacks, HasGameRef<MonsterT
     position.y += fallSpeed * dt;
 
     // Remove if off screen
-    if (position.y > gameRef.gameplayBottomY + 50) {
+    if (position.y > game.gameplayBottomY + 50) {
       onMissed(this);
       removeFromParent();
     }
