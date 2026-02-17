@@ -13,8 +13,6 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
       'sad': 'characters/world2/$_monsterId/sad.png',
     },
   };
-  static const String _world1HatPath =
-      'characters/world1/monster_main/accessories/hat.png';
 
   String currentState = 'idle';
   int _reactionId = 0;
@@ -29,10 +27,11 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
   late Sprite idleSprite;
   late Sprite happySprite;
   late Sprite sadSprite;
-  Sprite? _world1HatSprite;
+  Sprite? _hatSprite;
   SpriteComponent? _hatOverlay;
   bool _hatOverlayAttached = false;
-  bool _world1HatEquipped = false;
+  String? _hatAssetPath;
+  int _hatLoadToken = 0;
   double _idleTime = 0;
   static const double _idleAmplitude = 0.035; // 3.5%
   static const double _idleSpeed = 2.5;
@@ -50,7 +49,6 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     reactionIndicator = MonsterReactionIndicator()
       ..anchor = Anchor.center;
     add(reactionIndicator);
-    await _setupAccessories();
     _layoutReactionIndicator();
     _layoutAccessories();
     _applyAccessoryVisibility();
@@ -154,9 +152,10 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     });
   }
 
-  void setWorld1HatEquipped(bool equipped) {
-    _world1HatEquipped = equipped;
-    _applyAccessoryVisibility();
+  void setHatAccessoryAssetPath(String? assetPath) {
+    if (_hatAssetPath == assetPath) return;
+    _hatAssetPath = assetPath;
+    _loadHatSprite(assetPath);
   }
 
   void _playReactionSound(List<String> sounds) {
@@ -169,22 +168,6 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     reactionIndicator.position = Vector2(size.x / 2, -54);
   }
 
-  Future<void> _setupAccessories() async {
-    try {
-      _world1HatSprite = await game.loadSprite(_world1HatPath);
-      _hatOverlay = SpriteComponent(
-        sprite: _world1HatSprite,
-        anchor: Anchor.center,
-        priority: 12,
-      );
-      _hatOverlayAttached = false;
-    } catch (_) {
-      _world1HatSprite = null;
-      _hatOverlay = null;
-      _hatOverlayAttached = false;
-    }
-  }
-
   void _layoutAccessories() {
     if (_hatOverlay == null) return;
     _hatOverlay!
@@ -193,16 +176,44 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
   }
 
   void _applyAccessoryVisibility() {
-    if (_hatOverlay == null) return;
-    final shouldShowHat = currentWorld == GameWorld.world1 &&
-        _world1HatEquipped &&
-        _world1HatSprite != null;
+    final shouldShowHat = _hatOverlay != null && _hatSprite != null;
     if (shouldShowHat && !_hatOverlayAttached) {
       add(_hatOverlay!);
       _hatOverlayAttached = true;
     } else if (!shouldShowHat && _hatOverlayAttached) {
       _hatOverlay!.removeFromParent();
       _hatOverlayAttached = false;
+    }
+  }
+
+  Future<void> _loadHatSprite(String? assetPath) async {
+    final token = ++_hatLoadToken;
+    if (_hatOverlayAttached && _hatOverlay != null) {
+      _hatOverlay!.removeFromParent();
+    }
+    _hatOverlayAttached = false;
+    if (assetPath == null || assetPath.isEmpty) {
+      _hatSprite = null;
+      _hatOverlay = null;
+      _applyAccessoryVisibility();
+      return;
+    }
+    try {
+      final sprite = await game.loadSprite(assetPath);
+      if (token != _hatLoadToken) return;
+      _hatSprite = sprite;
+      _hatOverlay = SpriteComponent(
+        sprite: _hatSprite,
+        anchor: Anchor.center,
+        priority: 12,
+      );
+      _layoutAccessories();
+      _applyAccessoryVisibility();
+    } catch (_) {
+      if (token != _hatLoadToken) return;
+      _hatSprite = null;
+      _hatOverlay = null;
+      _applyAccessoryVisibility();
     }
   }
 }

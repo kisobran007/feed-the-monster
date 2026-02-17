@@ -22,16 +22,19 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static const int missedGoodItemPointsPenalty = 4;
   static const int world1HatCost = 60;
   static const String _coinsKey = 'coins_total';
+  static const String _unlockedAccessoryIdsKey = 'unlocked_accessory_ids';
+  static const String _equippedAccessoryByTargetKey = 'equipped_accessory_by_target';
   static const String _world1HatUnlockedKey = 'skin_world1_hat_unlocked';
   static const String _world1HatEquippedKey = 'skin_world1_hat_equipped';
+  static const String _monsterMainId = AccessoryCatalog.monsterMainId;
   int score = 0;
   int lives = maxLives;
   int bestScore = 0;
   int goodStreak = 0;
   int totalCoins = 0;
   int lastRunCoinsEarned = 0;
-  bool isWorld1HatUnlocked = false;
-  bool isWorld1HatEquipped = false;
+  final Set<String> unlockedAccessoryIds = <String>{};
+  final Map<String, String> equippedAccessoryByTarget = <String, String>{};
   bool isGameOver = false;
   bool isStarted = false;
   bool isPaused = false;
@@ -448,22 +451,60 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   Future<void> loadCustomizationProgress() async {
     final prefs = await SharedPreferences.getInstance();
     totalCoins = prefs.getInt(_coinsKey) ?? 0;
-    isWorld1HatUnlocked = prefs.getBool(_world1HatUnlockedKey) ?? false;
-    isWorld1HatEquipped = prefs.getBool(_world1HatEquippedKey) ?? false;
+    unlockedAccessoryIds
+      ..clear()
+      ..addAll(prefs.getStringList(_unlockedAccessoryIdsKey) ?? const []);
+
+    equippedAccessoryByTarget.clear();
+    final encodedEquipped = prefs.getString(_equippedAccessoryByTargetKey);
+    if (encodedEquipped != null && encodedEquipped.isNotEmpty) {
+      final decoded = jsonDecode(encodedEquipped);
+      if (decoded is Map<String, dynamic>) {
+        decoded.forEach((key, value) {
+          if (value is String) {
+            equippedAccessoryByTarget[key] = value;
+          }
+        });
+      }
+    }
+
+    // Backward compatibility: migrate old world1-hat bool flags.
+    final legacyUnlocked = prefs.getBool(_world1HatUnlockedKey) ?? false;
+    final legacyEquipped = prefs.getBool(_world1HatEquippedKey) ?? false;
+    if (legacyUnlocked) {
+      unlockedAccessoryIds.add(AccessoryCatalog.world1PartyHatId);
+      if (legacyEquipped) {
+        equippedAccessoryByTarget[_targetKey(GameWorld.world1, _monsterMainId)] =
+            AccessoryCatalog.world1PartyHatId;
+      }
+      await _saveCustomizationProgress();
+    }
+
     _applyMonsterAccessories();
   }
 
   Future<void> _saveCustomizationProgress() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_coinsKey, totalCoins);
+    await prefs.setStringList(_unlockedAccessoryIdsKey, unlockedAccessoryIds.toList());
+    await prefs.setString(
+      _equippedAccessoryByTargetKey,
+      jsonEncode(equippedAccessoryByTarget),
+    );
+    // Keep legacy values in sync while older code/paths may exist.
     await prefs.setBool(_world1HatUnlockedKey, isWorld1HatUnlocked);
     await prefs.setBool(_world1HatEquippedKey, isWorld1HatEquipped);
   }
 
   void _applyMonsterAccessories() {
     if (!isLoaded || !monster.isLoaded) return;
-    final hasEquippedHat = isWorld1HatUnlocked && isWorld1HatEquipped;
-    monster.setWorld1HatEquipped(hasEquippedHat);
+    final equippedId = equippedAccessoryIdForTarget(
+      world: currentWorld,
+      monsterId: _monsterMainId,
+    );
+    final equippedItem = equippedId == null ? null : AccessoryCatalog.byId(equippedId);
+    final hatItem = equippedItem?.slot == AccessorySlot.hat ? equippedItem : null;
+    monster.setHatAccessoryAssetPath(hatItem?.assetPath);
   }
 
   int _calculateCoinsFromScore(int finalScore) {
@@ -480,21 +521,98 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   Future<bool> unlockWorld1Hat() async {
-    if (isWorld1HatUnlocked) return true;
-    if (totalCoins < world1HatCost) return false;
-    totalCoins -= world1HatCost;
-    isWorld1HatUnlocked = true;
-    isWorld1HatEquipped = true;
-    await _saveCustomizationProgress();
-    _applyMonsterAccessories();
+    final ok = await unlockAccessory(AccessoryCatalog.world1PartyHatId);
+    if (!ok) return false;
+    await setAccessoryEquipped(
+      AccessoryCatalog.world1PartyHatId,
+      world: GameWorld.world1,
+      monsterId: _monsterMainId,
+    );
     return true;
   }
 
   Future<void> setWorld1HatEquipped(bool equipped) async {
-    if (equipped && !isWorld1HatUnlocked) return;
-    isWorld1HatEquipped = equipped;
+    if (equipped) {
+      if (!isWorld1HatUnlocked) return;
+      await setAccessoryEquipped(
+        AccessoryCatalog.world1PartyHatId,
+        world: GameWorld.world1,
+        monsterId: _monsterMainId,
+      );
+      return;
+    }
+    await clearEquippedAccessory(
+      world: GameWorld.world1,
+      monsterId: _monsterMainId,
+    );
+  }
+
+  List<AccessoryItem> accessoriesFor({
+    required GameWorld world,
+    required String monsterId,
+  }) {
+    return AccessoryCatalog.forMonster(world: world, monsterId: monsterId);
+  }
+
+  bool isAccessoryUnlocked(String accessoryId) {
+    return unlockedAccessoryIds.contains(accessoryId);
+  }
+
+  String? equippedAccessoryIdForTarget({
+    required GameWorld world,
+    required String monsterId,
+  }) {
+    return equippedAccessoryByTarget[_targetKey(world, monsterId)];
+  }
+
+  bool isAccessoryEquipped({
+    required String accessoryId,
+    required GameWorld world,
+    required String monsterId,
+  }) {
+    return equippedAccessoryIdForTarget(world: world, monsterId: monsterId) == accessoryId;
+  }
+
+  Future<bool> unlockAccessory(String accessoryId) async {
+    if (isAccessoryUnlocked(accessoryId)) return true;
+    final item = AccessoryCatalog.byId(accessoryId);
+    if (item == null) return false;
+    if (totalCoins < item.cost) return false;
+    totalCoins -= item.cost;
+    unlockedAccessoryIds.add(accessoryId);
+    await _saveCustomizationProgress();
+    return true;
+  }
+
+  Future<void> setAccessoryEquipped(
+    String accessoryId, {
+    required GameWorld world,
+    required String monsterId,
+  }) async {
+    if (!isAccessoryUnlocked(accessoryId)) return;
+    equippedAccessoryByTarget[_targetKey(world, monsterId)] = accessoryId;
     await _saveCustomizationProgress();
     _applyMonsterAccessories();
+  }
+
+  Future<void> clearEquippedAccessory({
+    required GameWorld world,
+    required String monsterId,
+  }) async {
+    equippedAccessoryByTarget.remove(_targetKey(world, monsterId));
+    await _saveCustomizationProgress();
+    _applyMonsterAccessories();
+  }
+
+  bool get isWorld1HatUnlocked => isAccessoryUnlocked(AccessoryCatalog.world1PartyHatId);
+  bool get isWorld1HatEquipped => isAccessoryEquipped(
+        accessoryId: AccessoryCatalog.world1PartyHatId,
+        world: GameWorld.world1,
+        monsterId: _monsterMainId,
+      );
+
+  String _targetKey(GameWorld world, String monsterId) {
+    return '${world.name}:$monsterId';
   }
 
   Future<void> _saveBestScore() async {

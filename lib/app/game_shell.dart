@@ -75,19 +75,38 @@ class _GameScreenState extends State<GameScreen> {
 
     var previewState = 'idle';
     var coins = game.totalCoins;
-    var hatUnlocked = game.isWorld1HatUnlocked;
-    var hatEquipped = game.isWorld1HatEquipped;
     var showHatPreview = true;
+    final hatItems = game
+        .accessoriesFor(
+          world: GameWorld.world1,
+          monsterId: AccessoryCatalog.monsterMainId,
+        )
+        .where((item) => item.slot == AccessorySlot.hat)
+        .toList();
+    String selectedHatId = hatItems.first.id;
+    final equippedHatId = game.equippedAccessoryIdForTarget(
+      world: GameWorld.world1,
+      monsterId: AccessoryCatalog.monsterMainId,
+    );
+    if (equippedHatId != null && hatItems.any((item) => item.id == equippedHatId)) {
+      selectedHatId = equippedHatId;
+    }
 
     await showDialog<void>(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            final selectedHat = hatItems.firstWhere((item) => item.id == selectedHatId);
+            final hatUnlocked = game.isAccessoryUnlocked(selectedHat.id);
+            final hatEquipped = game.isAccessoryEquipped(
+              accessoryId: selectedHat.id,
+              world: GameWorld.world1,
+              monsterId: AccessoryCatalog.monsterMainId,
+            );
             final monsterPath =
                 'assets/images/characters/world1/monster_main/$previewState.png';
-            const hatPath =
-                'assets/images/characters/world1/monster_main/accessories/hat.png';
+            final hatPath = 'assets/images/${selectedHat.assetPath}';
 
             return AlertDialog(
               backgroundColor: const Color(0xFF1F1F1F),
@@ -101,199 +120,236 @@ class _GameScreenState extends State<GameScreen> {
               ),
               content: SizedBox(
                 width: 360,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Coins: $coins',
-                      style: const TextStyle(
-                        color: Color(0xFFFFD54F),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 20,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      width: 220,
-                      height: 220,
-                      decoration: BoxDecoration(
-                        color: const Color(0x33000000),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0x66FFFFFF)),
-                      ),
-                      padding: const EdgeInsets.all(10),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Positioned.fill(
-                            child: Image.asset(monsterPath, fit: BoxFit.contain),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 500),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Coins: $coins',
+                          style: const TextStyle(
+                            color: Color(0xFFFFD54F),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 20,
                           ),
-                          if (showHatPreview)
-                            Positioned(
-                              top: 8,
-                              child: SizedBox(
-                                width: 150,
-                                height: 92,
-                                child: Opacity(
-                                  opacity: hatUnlocked ? 1.0 : 0.75,
-                                  child: Image.asset(hatPath, fit: BoxFit.contain),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: 220,
+                          height: 220,
+                          decoration: BoxDecoration(
+                            color: const Color(0x33000000),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0x66FFFFFF)),
+                          ),
+                          padding: const EdgeInsets.all(10),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Positioned.fill(
+                                child: Image.asset(monsterPath, fit: BoxFit.contain),
+                              ),
+                              if (showHatPreview)
+                                Positioned(
+                                  top: 8,
+                                  child: SizedBox(
+                                    width: 150,
+                                    height: 92,
+                                    child: Opacity(
+                                      opacity: hatUnlocked ? 1.0 : 0.75,
+                                      child: Image.asset(hatPath, fit: BoxFit.contain),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ChoiceChip(
+                              label: const Text('Idle'),
+                              selected: previewState == 'idle',
+                              onSelected: (_) => setDialogState(() => previewState = 'idle'),
+                            ),
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: const Text('Happy'),
+                              selected: previewState == 'happy',
+                              onSelected: (_) => setDialogState(() => previewState = 'happy'),
+                            ),
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: const Text('Sad'),
+                              selected: previewState == 'sad',
+                              onSelected: (_) => setDialogState(() => previewState = 'sad'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0x22000000),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0x44FFFFFF)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 56,
+                                    height: 56,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0x33000000),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    padding: const EdgeInsets.all(4),
+                                    child: Image.asset(hatPath, fit: BoxFit.contain),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          selectedHat.label,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Cost: ${selectedHat.cost} coins',
+                                          style: const TextStyle(color: Colors.white70),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  FilterChip(
+                                    label: const Text('Preview'),
+                                    selected: showHatPreview,
+                                    onSelected: (v) => setDialogState(() => showHatPreview = v),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                hatUnlocked
+                                    ? (hatEquipped ? 'Status: Equipped in game' : 'Status: Unlocked')
+                                    : 'Status: Locked',
+                                style: const TextStyle(color: Colors.white70),
+                              ),
+                              if (!hatUnlocked && coins < selectedHat.cost)
+                                Text(
+                                  'Need ${selectedHat.cost - coins} more coins',
+                                  style: const TextStyle(color: Color(0xFFFFAB91)),
+                                ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Hats',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ChoiceChip(
-                          label: const Text('Idle'),
-                          selected: previewState == 'idle',
-                          onSelected: (_) => setDialogState(() => previewState = 'idle'),
-                        ),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
-                          label: const Text('Happy'),
-                          selected: previewState == 'happy',
-                          onSelected: (_) => setDialogState(() => previewState = 'happy'),
-                        ),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
-                          label: const Text('Sad'),
-                          selected: previewState == 'sad',
-                          onSelected: (_) => setDialogState(() => previewState = 'sad'),
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: hatItems
+                                    .map(
+                                      (item) => ChoiceChip(
+                                        label: Text(item.label),
+                                        selected: selectedHatId == item.id,
+                                        onSelected: (_) {
+                                          setDialogState(() {
+                                            selectedHatId = item.id;
+                                          });
+                                        },
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: [
+                                  if (!hatUnlocked)
+                                    ElevatedButton(
+                                      onPressed: coins >= selectedHat.cost
+                                          ? () async {
+                                              final ok = await game.unlockAccessory(selectedHat.id);
+                                              if (!ok) return;
+                                              await game.setAccessoryEquipped(
+                                                selectedHat.id,
+                                                world: GameWorld.world1,
+                                                monsterId: AccessoryCatalog.monsterMainId,
+                                              );
+                                              await game.loadCustomizationProgress();
+                                              setDialogState(() {
+                                                coins = game.totalCoins;
+                                              });
+                                            }
+                                          : null,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF43A047),
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      child: const Text('Unlock & Apply'),
+                                    ),
+                                  if (hatUnlocked)
+                                    ElevatedButton(
+                                      onPressed: hatEquipped
+                                          ? null
+                                          : () async {
+                                              await game.setAccessoryEquipped(
+                                                selectedHat.id,
+                                                world: GameWorld.world1,
+                                                monsterId: AccessoryCatalog.monsterMainId,
+                                              );
+                                              await game.loadCustomizationProgress();
+                                              setDialogState(() {
+                                                coins = game.totalCoins;
+                                              });
+                                            },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF42A5F5),
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      child: Text(hatEquipped ? 'Applied' : 'Apply'),
+                                    ),
+                                  if (hatUnlocked)
+                                    OutlinedButton(
+                                      onPressed: hatEquipped
+                                          ? () async {
+                                              await game.clearEquippedAccessory(
+                                                world: GameWorld.world1,
+                                                monsterId: AccessoryCatalog.monsterMainId,
+                                              );
+                                              await game.loadCustomizationProgress();
+                                              setDialogState(() {
+                                                coins = game.totalCoins;
+                                              });
+                                            }
+                                          : null,
+                                      child: const Text('Remove'),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0x22000000),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0x44FFFFFF)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: const Color(0x33000000),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                padding: const EdgeInsets.all(4),
-                                child: Image.asset(hatPath, fit: BoxFit.contain),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Classic Hat',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Cost: ${MonsterTapGame.world1HatCost} coins',
-                                      style: const TextStyle(color: Colors.white70),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              FilterChip(
-                                label: const Text('Preview'),
-                                selected: showHatPreview,
-                                onSelected: (v) => setDialogState(() => showHatPreview = v),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            hatUnlocked
-                                ? (hatEquipped ? 'Status: Equipped in game' : 'Status: Unlocked')
-                                : 'Status: Locked',
-                            style: const TextStyle(color: Colors.white70),
-                          ),
-                          if (!hatUnlocked && coins < MonsterTapGame.world1HatCost)
-                            Text(
-                              'Need ${MonsterTapGame.world1HatCost - coins} more coins',
-                              style: const TextStyle(color: Color(0xFFFFAB91)),
-                            ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              if (!hatUnlocked)
-                                ElevatedButton(
-                                  onPressed: coins >= MonsterTapGame.world1HatCost
-                                      ? () async {
-                                          final ok = await game.unlockWorld1Hat();
-                                          if (!ok) return;
-                                          await game.loadCustomizationProgress();
-                                          setDialogState(() {
-                                            coins = game.totalCoins;
-                                            hatUnlocked = game.isWorld1HatUnlocked;
-                                            hatEquipped = game.isWorld1HatEquipped;
-                                          });
-                                        }
-                                      : null,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF43A047),
-                                    foregroundColor: Colors.white,
-                                  ),
-                                  child: const Text('Unlock & Apply'),
-                                ),
-                              if (hatUnlocked)
-                                ElevatedButton(
-                                  onPressed: hatEquipped
-                                      ? null
-                                      : () async {
-                                          await game.setWorld1HatEquipped(true);
-                                          await game.loadCustomizationProgress();
-                                          setDialogState(() {
-                                            coins = game.totalCoins;
-                                            hatUnlocked = game.isWorld1HatUnlocked;
-                                            hatEquipped = game.isWorld1HatEquipped;
-                                          });
-                                        },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF42A5F5),
-                                    foregroundColor: Colors.white,
-                                  ),
-                                  child: Text(hatEquipped ? 'Applied' : 'Apply'),
-                                ),
-                              if (hatUnlocked)
-                                OutlinedButton(
-                                  onPressed: hatEquipped
-                                      ? () async {
-                                          await game.setWorld1HatEquipped(false);
-                                          await game.loadCustomizationProgress();
-                                          setDialogState(() {
-                                            coins = game.totalCoins;
-                                            hatUnlocked = game.isWorld1HatUnlocked;
-                                            hatEquipped = game.isWorld1HatEquipped;
-                                          });
-                                        }
-                                      : null,
-                                  child: const Text('Remove'),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               actions: [
