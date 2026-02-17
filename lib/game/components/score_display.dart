@@ -1,8 +1,9 @@
 part of '../../main.dart';
+
 class ScoreDisplay extends PositionComponent {
   late TextComponent scoreText;
   late TextComponent goldText;
-  late TextComponent worldText;
+  late TextComponent levelText;
   late TextComponent goalText;
   late HeartsDisplay heartsDisplay;
 
@@ -10,7 +11,7 @@ class ScoreDisplay extends PositionComponent {
   int _gold = 0;
   int _lives = 3;
   int _maxLives = 3;
-  GameWorld _world = GameWorld.world1;
+  GameLevel _level = GameLevel.level1;
   String _goal = '';
 
   ScoreDisplay();
@@ -41,7 +42,7 @@ class ScoreDisplay extends PositionComponent {
       ),
     )..position = Vector2(0, 32);
 
-    worldText = TextComponent(
+    levelText = TextComponent(
       text: '',
       textRenderer: TextPaint(
         style: const TextStyle(
@@ -72,7 +73,7 @@ class ScoreDisplay extends PositionComponent {
 
     add(scoreText);
     add(goldText);
-    add(worldText);
+    add(levelText);
     add(heartsDisplay);
     add(goalText);
     _applyHud();
@@ -83,7 +84,7 @@ class ScoreDisplay extends PositionComponent {
     int gold,
     int lives,
     int maxLives,
-    GameWorld world,
+    GameLevel level,
     String goal, {
     bool forceRepaint = false,
   }) {
@@ -91,7 +92,7 @@ class ScoreDisplay extends PositionComponent {
     _gold = gold;
     _lives = lives;
     _maxLives = maxLives;
-    _world = world;
+    _level = level;
     _goal = goal;
     if (!isLoaded) return;
     _applyHud();
@@ -100,7 +101,7 @@ class ScoreDisplay extends PositionComponent {
   void _applyHud() {
     scoreText.text = 'Score: $_score';
     goldText.text = 'Gold: $_gold';
-    worldText.text = _world == GameWorld.world1 ? 'World 1' : 'World 2';
+    levelText.text = _level.label;
     goalText.text = _goal;
     heartsDisplay
       ..maxLives = _maxLives

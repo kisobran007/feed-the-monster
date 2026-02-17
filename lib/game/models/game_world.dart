@@ -1,7 +1,11 @@
 part of '../../main.dart';
-enum GameWorld {
-  world1,
-  world2,
+
+enum GameLevel {
+  level1,
+  level2,
 }
 
-// Falling item component
+extension GameLevelX on GameLevel {
+  String get label => this == GameLevel.level1 ? 'Level 1' : 'Level 2';
+  String get assetFolder => this == GameLevel.level1 ? 'level1' : 'level2';
+}

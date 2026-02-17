@@ -26,8 +26,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static const int wrongDropPointsPenalty = 3;
   static const int missedBadItemPointsPenalty = 2;
   static const double _dropZoneScale = 0.72;
-  static const int world1HatCost = 60;
   static const String _coinsKey = 'coins_total';
+  static const String _selectedLevelKey = 'selected_level';
+  static const String _unlockedLevelIdsKey = 'unlocked_level_ids';
   static const String _unlockedAccessoryIdsKey = 'unlocked_accessory_ids';
   static const String _equippedAccessoryByTargetKey =
       'equipped_accessory_by_target';
@@ -44,6 +45,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   int lastRunCoinsEarned = 0;
   String selectedMonsterId = MonsterCatalog.defaultMonsterId;
   final Set<String> unlockedMonsterIds = <String>{};
+  GameLevel selectedLevel = GameLevel.level1;
+  final Set<GameLevel> unlockedLevels = <GameLevel>{};
   final Set<String> unlockedAccessoryIds = <String>{};
   final Map<String, String> equippedAccessoryByTarget = <String, String>{};
   bool isGameOver = false;
@@ -76,15 +79,19 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   double get monsterAreaTopY => gameplayBottomY;
   double get monsterAreaHeight => size.y - monsterAreaTopY;
 
-  GameWorld currentWorld = GameWorld.world1;
-
-  static const int world2ScoreThreshold = 300;
-
-  List<String> world1Good = ['apple', 'banana', 'cookie', 'strawberry'];
-  List<String> world1Bad = ['bad_shoe', 'bad_rock', 'bad_soap', 'bad_brick'];
-
-  List<String> world2Good = ['cupcake', 'lollipop'];
-  List<String> world2Bad = ['chili', 'onion'];
+  static const int level1UnlockScore = 300;
+  static const Map<GameLevel, String> _backgroundByLevel = {
+    GameLevel.level1: 'backgrounds/bg_meadow.png',
+    GameLevel.level2: 'backgrounds/bg_world2.png',
+  };
+  static const Map<GameLevel, List<String>> _goodItemsByLevel = {
+    GameLevel.level1: ['apple', 'banana', 'cookie', 'strawberry'],
+    GameLevel.level2: ['cupcake', 'lollipop'],
+  };
+  static const Map<GameLevel, List<String>> _badItemsByLevel = {
+    GameLevel.level1: ['bad_shoe', 'bad_rock', 'bad_soap', 'bad_brick'],
+    GameLevel.level2: ['chili', 'onion'],
+  };
 
   @override
   Future<void> onLoad() async {
@@ -119,7 +126,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       totalCoins,
       lives,
       maxLives,
-      currentWorld,
+      selectedLevel,
       _goalText(),
       forceRepaint: true,
     );
@@ -130,13 +137,15 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
     await _loadBestScore();
     await loadCustomizationProgress();
+    await _applySelectedMonster();
+    await _applyLevelTheme(selectedLevel);
     await _initBackgroundMusic();
     scoreDisplay.updateHud(
       score,
       totalCoins,
       lives,
       maxLives,
-      currentWorld,
+      selectedLevel,
       _goalText(),
       forceRepaint: true,
     );
@@ -175,9 +184,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     final random = Random();
     final isGood = random.nextDouble() < goodItemChance;
 
-    final goodList = currentWorld == GameWorld.world1 ? world1Good : world2Good;
-
-    final badList = currentWorld == GameWorld.world1 ? world1Bad : world2Bad;
+    final goodList = _goodItemsByLevel[selectedLevel]!;
+    final badList = _badItemsByLevel[selectedLevel]!;
 
     final itemType = isGood
         ? goodList[random.nextInt(goodList.length)]
@@ -274,13 +282,13 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
         triggerGameOver();
       }
     }
-    _checkWorldProgression();
+    _checkLevelUnlockProgress();
     scoreDisplay.updateHud(
       score,
       totalCoins,
       lives,
       maxLives,
-      currentWorld,
+      selectedLevel,
       _goalText(),
     );
     item.removeFromParent();
@@ -311,7 +319,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     }
     monster.showOops();
     _triggerScreenShake();
-    _checkWorldProgression();
+    _checkLevelUnlockProgress();
     if (lives <= 0) {
       triggerGameOver();
       return;
@@ -321,7 +329,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       totalCoins,
       lives,
       maxLives,
-      currentWorld,
+      selectedLevel,
       _goalText(),
     );
   }
@@ -340,7 +348,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       totalCoins,
       lives,
       maxLives,
-      currentWorld,
+      selectedLevel,
       _goalText(),
     );
     gameOverDisplay.show(score, survivalTime);
@@ -358,8 +366,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     _difficultyTimer = 0;
     currentSpawnInterval = baseSpawnInterval;
     currentFallSpeed = baseFallSpeed;
-    currentWorld = GameWorld.world1;
-
     // Remove all falling items
     children
         .whereType<FallingItem>()
@@ -374,11 +380,11 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       totalCoins,
       lives,
       maxLives,
-      currentWorld,
+      selectedLevel,
       _goalText(),
       forceRepaint: true,
     );
-    _applyWorldTheme(currentWorld);
+    _applyLevelTheme(selectedLevel);
   }
 
   void startGame() {
@@ -395,7 +401,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
           totalCoins,
           lives,
           maxLives,
-          currentWorld,
+          selectedLevel,
           _goalText(),
           forceRepaint: true,
         );
@@ -413,71 +419,28 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     }
   }
 
-  void _checkWorldProgression() {
-    if (score >= world2ScoreThreshold && currentWorld == GameWorld.world1) {
-      _transitionToWorld(GameWorld.world2);
-    }
+  void _checkLevelUnlockProgress() {
+    if (selectedLevel != GameLevel.level1) return;
+    if (score < level1UnlockScore) return;
+    if (unlockedLevels.contains(GameLevel.level2)) return;
+    unlockedLevels.add(GameLevel.level2);
+    _saveCustomizationProgress();
   }
 
-  void _transitionToWorld(GameWorld newWorld) {
-    if (isTransitioning) return;
-    isTransitioning = true;
-
-    // Celebration moment
-    monster.showStreak();
-
-    add(
-      TapBurst(
-        position: Vector2(size.x / 2, size.y / 2),
-        baseColor: const Color(0xFFFF80AB),
-        particleCount: 40,
-        particleSize: 14,
-        lifetime: 0.8,
-        spreadSpeed: 250,
-      ),
-    );
-
-    add(
-      WorldTransitionOverlay(
-        nextWorld: newWorld,
-        onSwitchWorld: () {
-          currentWorld = newWorld;
-          _applyWorldTheme(newWorld);
-          scoreDisplay.updateHud(
-            score,
-            totalCoins,
-            lives,
-            maxLives,
-            currentWorld,
-            _goalText(),
-          );
-        },
-        onCompleted: () {
-          isTransitioning = false;
-        },
-      ),
-    );
-  }
-
-  Future<void> _applyWorldTheme(GameWorld world) async {
-    switch (world) {
-      case GameWorld.world1:
-        background.sprite = await loadSprite('backgrounds/bg_meadow.png');
-        break;
-
-      case GameWorld.world2:
-        background.sprite = await loadSprite('backgrounds/bg_world2.png');
-        break;
-    }
-    await monster.loadWorldSkin(world);
+  Future<void> _applyLevelTheme(GameLevel level) async {
+    background.sprite = await loadSprite(_backgroundByLevel[level]!);
+    await monster.loadLevelSkin(level);
     _applyMonsterAccessories();
   }
 
   String _goalText() {
-    if (currentWorld == GameWorld.world1) {
-      return 'Goal: reach $world2ScoreThreshold points to unlock World 2';
+    if (selectedLevel == GameLevel.level1) {
+      if (unlockedLevels.contains(GameLevel.level2)) {
+        return 'Goal complete: Level 2 unlocked';
+      }
+      return 'Goal: reach $level1UnlockScore points to unlock Level 2';
     }
-    return 'Goal: survive and collect more gold';
+    return 'Goal: survive and collect more gold in Level 2';
   }
 
   void _triggerScreenShake() {
@@ -510,6 +473,21 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   Future<void> loadCustomizationProgress() async {
     final prefs = await SharedPreferences.getInstance();
     totalCoins = prefs.getInt(_coinsKey) ?? 0;
+    unlockedLevels
+      ..clear()
+      ..addAll(
+          _decodeUnlockedLevels(prefs.getStringList(_unlockedLevelIdsKey)));
+    if (unlockedLevels.isEmpty) {
+      unlockedLevels.add(GameLevel.level1);
+    }
+    final persistedLevelId = prefs.getString(_selectedLevelKey);
+    final persistedLevel = _levelFromId(persistedLevelId);
+    if (persistedLevel != null && unlockedLevels.contains(persistedLevel)) {
+      selectedLevel = persistedLevel;
+    } else {
+      selectedLevel = GameLevel.level1;
+    }
+
     unlockedMonsterIds
       ..clear()
       ..addAll(prefs.getStringList(_unlockedMonsterIdsKey) ?? const []);
@@ -537,7 +515,13 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       if (decoded is Map<String, dynamic>) {
         decoded.forEach((key, value) {
           if (value is String) {
-            equippedAccessoryByTarget[key] = value;
+            var normalizedKey = key;
+            if (normalizedKey.startsWith('world1:')) {
+              normalizedKey = normalizedKey.replaceFirst('world1:', 'level1:');
+            } else if (normalizedKey.startsWith('world2:')) {
+              normalizedKey = normalizedKey.replaceFirst('world2:', 'level2:');
+            }
+            equippedAccessoryByTarget[normalizedKey] = value;
           }
         });
       }
@@ -550,19 +534,27 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       unlockedAccessoryIds.add(AccessoryCatalog.world1PartyHatId);
       if (legacyEquipped) {
         equippedAccessoryByTarget[
-                _targetKey(GameWorld.world1, _legacyMonsterMainId)] =
+                _targetKey(GameLevel.level1, _legacyMonsterMainId)] =
             AccessoryCatalog.world1PartyHatId;
       }
       await _saveCustomizationProgress();
     }
 
-    await _applySelectedMonster();
-    _applyMonsterAccessories();
+    if (isLoaded) {
+      await _applySelectedMonster();
+      await _applyLevelTheme(selectedLevel);
+      _applyMonsterAccessories();
+    }
   }
 
   Future<void> _saveCustomizationProgress() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_coinsKey, totalCoins);
+    await prefs.setString(_selectedLevelKey, selectedLevel.name);
+    await prefs.setStringList(
+      _unlockedLevelIdsKey,
+      unlockedLevels.map((level) => level.name).toList(),
+    );
     await prefs.setString(_selectedMonsterIdKey, selectedMonsterId);
     await prefs.setStringList(
         _unlockedMonsterIdsKey, unlockedMonsterIds.toList());
@@ -579,10 +571,15 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   void _applyMonsterAccessories() {
     if (!isLoaded || !monster.isLoaded) return;
-    final equippedId = equippedAccessoryIdForTarget(
-      world: currentWorld,
+    final equippedIdForLevel = equippedAccessoryIdForTarget(
+      level: selectedLevel,
       monsterId: selectedMonsterId,
     );
+    final equippedId = equippedIdForLevel ??
+        equippedAccessoryIdForTarget(
+          level: GameLevel.level1,
+          monsterId: selectedMonsterId,
+        );
     final equippedItem =
         equippedId == null ? null : AccessoryCatalog.byId(equippedId);
     final hatItem =
@@ -608,7 +605,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (!ok) return false;
     await setAccessoryEquipped(
       AccessoryCatalog.world1PartyHatId,
-      world: GameWorld.world1,
+      level: GameLevel.level1,
       monsterId: _legacyMonsterMainId,
     );
     return true;
@@ -619,22 +616,22 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       if (!isWorld1HatUnlocked) return;
       await setAccessoryEquipped(
         AccessoryCatalog.world1PartyHatId,
-        world: GameWorld.world1,
+        level: GameLevel.level1,
         monsterId: _legacyMonsterMainId,
       );
       return;
     }
     await clearEquippedAccessory(
-      world: GameWorld.world1,
+      level: GameLevel.level1,
       monsterId: _legacyMonsterMainId,
     );
   }
 
   List<AccessoryItem> accessoriesFor({
-    required GameWorld world,
+    required GameLevel level,
     required String monsterId,
   }) {
-    return AccessoryCatalog.forMonster(world: world, monsterId: monsterId);
+    return AccessoryCatalog.forMonster(level: level, monsterId: monsterId);
   }
 
   bool isAccessoryUnlocked(String accessoryId) {
@@ -642,18 +639,18 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   String? equippedAccessoryIdForTarget({
-    required GameWorld world,
+    required GameLevel level,
     required String monsterId,
   }) {
-    return equippedAccessoryByTarget[_targetKey(world, monsterId)];
+    return equippedAccessoryByTarget[_targetKey(level, monsterId)];
   }
 
   bool isAccessoryEquipped({
     required String accessoryId,
-    required GameWorld world,
+    required GameLevel level,
     required String monsterId,
   }) {
-    return equippedAccessoryIdForTarget(world: world, monsterId: monsterId) ==
+    return equippedAccessoryIdForTarget(level: level, monsterId: monsterId) ==
         accessoryId;
   }
 
@@ -670,20 +667,20 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   Future<void> setAccessoryEquipped(
     String accessoryId, {
-    required GameWorld world,
+    required GameLevel level,
     required String monsterId,
   }) async {
     if (!isAccessoryUnlocked(accessoryId)) return;
-    equippedAccessoryByTarget[_targetKey(world, monsterId)] = accessoryId;
+    equippedAccessoryByTarget[_targetKey(level, monsterId)] = accessoryId;
     await _saveCustomizationProgress();
     _applyMonsterAccessories();
   }
 
   Future<void> clearEquippedAccessory({
-    required GameWorld world,
+    required GameLevel level,
     required String monsterId,
   }) async {
-    equippedAccessoryByTarget.remove(_targetKey(world, monsterId));
+    equippedAccessoryByTarget.remove(_targetKey(level, monsterId));
     await _saveCustomizationProgress();
     _applyMonsterAccessories();
   }
@@ -692,9 +689,35 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       isAccessoryUnlocked(AccessoryCatalog.world1PartyHatId);
   bool get isWorld1HatEquipped => isAccessoryEquipped(
         accessoryId: AccessoryCatalog.world1PartyHatId,
-        world: GameWorld.world1,
+        level: GameLevel.level1,
         monsterId: _legacyMonsterMainId,
       );
+
+  List<GameLevel> get availableLevels => GameLevel.values;
+
+  bool isLevelUnlocked(GameLevel level) {
+    return unlockedLevels.contains(level);
+  }
+
+  Future<void> selectLevel(GameLevel level) async {
+    if (!isLevelUnlocked(level)) return;
+    selectedLevel = level;
+    await _saveCustomizationProgress();
+    if (isStarted) {
+      restartGame();
+    } else if (isLoaded) {
+      await _applyLevelTheme(selectedLevel);
+      scoreDisplay.updateHud(
+        score,
+        totalCoins,
+        lives,
+        maxLives,
+        selectedLevel,
+        _goalText(),
+        forceRepaint: true,
+      );
+    }
+  }
 
   List<MonsterCharacter> get availableMonsters => MonsterCatalog.characters;
 
@@ -726,8 +749,31 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     _applyMonsterAccessories();
   }
 
-  String _targetKey(GameWorld world, String monsterId) {
-    return '${world.name}:$monsterId';
+  String _targetKey(GameLevel level, String monsterId) {
+    return '${level.name}:$monsterId';
+  }
+
+  GameLevel? _levelFromId(String? id) {
+    if (id == null || id.isEmpty) return null;
+    for (final level in GameLevel.values) {
+      if (level.name == id) return level;
+    }
+    return null;
+  }
+
+  Set<GameLevel> _decodeUnlockedLevels(List<String>? ids) {
+    if (ids == null || ids.isEmpty) {
+      return <GameLevel>{GameLevel.level1};
+    }
+    final result = <GameLevel>{};
+    for (final id in ids) {
+      final level = _levelFromId(id);
+      if (level != null) {
+        result.add(level);
+      }
+    }
+    result.add(GameLevel.level1);
+    return result;
   }
 
   Future<void> _applySelectedMonster() async {

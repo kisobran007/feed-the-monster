@@ -94,13 +94,13 @@ class _GameScreenState extends State<GameScreen> {
             final monsterSelected = game.isMonsterSelected(selectedMonster.id);
             final hatItems = game
                 .accessoriesFor(
-                  world: GameWorld.world1,
+                  level: GameLevel.level1,
                   monsterId: selectedMonster.id,
                 )
                 .where((item) => item.slot == AccessorySlot.hat)
                 .toList();
             final equippedHatId = game.equippedAccessoryIdForTarget(
-              world: GameWorld.world1,
+              level: GameLevel.level1,
               monsterId: selectedMonster.id,
             );
             if (selectedHatId == null ||
@@ -119,12 +119,13 @@ class _GameScreenState extends State<GameScreen> {
             final hatEquipped = selectedHat != null
                 ? game.isAccessoryEquipped(
                     accessoryId: selectedHat.id,
-                    world: GameWorld.world1,
+                    level: GameLevel.level1,
                     monsterId: selectedMonster.id,
                   )
                 : false;
+            final previewFolder = game.selectedLevel.assetFolder;
             final monsterPath =
-                'assets/images/characters/world1/${selectedMonster.id}/$previewState.png';
+                'assets/images/characters/$previewFolder/${selectedMonster.id}/$previewState.png';
             final hatPath = selectedHat == null
                 ? null
                 : 'assets/images/${selectedHat.assetPath}';
@@ -453,7 +454,7 @@ class _GameScreenState extends State<GameScreen> {
                                               if (!ok) return;
                                               await game.setAccessoryEquipped(
                                                 selectedHat.id,
-                                                world: GameWorld.world1,
+                                                level: GameLevel.level1,
                                                 monsterId: selectedMonster.id,
                                               );
                                               await game
@@ -477,7 +478,7 @@ class _GameScreenState extends State<GameScreen> {
                                           : () async {
                                               await game.setAccessoryEquipped(
                                                 selectedHat.id,
-                                                world: GameWorld.world1,
+                                                level: GameLevel.level1,
                                                 monsterId: selectedMonster.id,
                                               );
                                               await game
@@ -499,7 +500,7 @@ class _GameScreenState extends State<GameScreen> {
                                       onPressed: hatEquipped
                                           ? () async {
                                               await game.clearEquippedAccessory(
-                                                world: GameWorld.world1,
+                                                level: GameLevel.level1,
                                                 monsterId: selectedMonster.id,
                                               );
                                               await game
@@ -528,6 +529,98 @@ class _GameScreenState extends State<GameScreen> {
                     'Close',
                     style: TextStyle(color: Color(0xFF81C784)),
                   ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _openLevelsMenu() async {
+    await game.loadCustomizationProgress();
+    if (!mounted) return;
+
+    var selectedLevel = game.selectedLevel;
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final levels = game.availableLevels;
+            final isUnlocked = game.isLevelUnlocked(selectedLevel);
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1F1F1F),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              title: const Text(
+                'Levels',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: SizedBox(
+                width: 360,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: levels
+                          .map(
+                            (level) => ChoiceChip(
+                              label: Text(level.label),
+                              selected: selectedLevel == level,
+                              onSelected: (_) {
+                                setDialogState(() {
+                                  selectedLevel = level;
+                                });
+                              },
+                            ),
+                          )
+                          .toList(),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      isUnlocked ? 'Status: Unlocked' : 'Status: Locked',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    if (!isUnlocked && selectedLevel == GameLevel.level2)
+                      const Text(
+                        'Complete Level 1 with 300+ score to unlock.',
+                        style: TextStyle(color: Color(0xFFFFAB91)),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text(
+                    'Close',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: isUnlocked
+                      ? () async {
+                          final navigator = Navigator.of(context);
+                          await game.selectLevel(selectedLevel);
+                          if (!mounted) return;
+                          navigator.pop();
+                          setState(() {});
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF42A5F5),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Play Level'),
                 ),
               ],
             );
@@ -593,6 +686,23 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                     child: const Text(
                       'My Monster',
+                      style:
+                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  ElevatedButton(
+                    onPressed: _openLevelsMenu,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFA726),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 14,
+                      ),
+                    ),
+                    child: const Text(
+                      'Levels',
                       style:
                           TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
@@ -696,6 +806,32 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                     child: const Text(
                       'My Monster',
+                      style:
+                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  ElevatedButton(
+                    onPressed: () async {
+                      setState(() {
+                        isMenuOpen = false;
+                      });
+                      await _openLevelsMenu();
+                      if (!mounted || !hasStarted || !isPaused) return;
+                      setState(() {
+                        isMenuOpen = true;
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFA726),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 14,
+                      ),
+                    ),
+                    child: const Text(
+                      'Levels',
                       style:
                           TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),

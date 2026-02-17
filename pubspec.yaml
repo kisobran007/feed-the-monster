@@ -24,8 +24,8 @@ flutter:
     - assets/images/backgrounds/
     - assets/images/items/
     - assets/images/trash_bin/
-    - assets/images/characters/world1/monster_main/
-    - assets/images/characters/world1/monster_main/accessories/
-    - assets/images/characters/world2/monster_main/
-    - assets/images/characters/world2/monster_main/accessories/
+    - assets/images/characters/level1/monster_main/
+    - assets/images/characters/level1/monster_main/accessories/
+    - assets/images/characters/level2/monster_main/
+    - assets/images/characters/level2/monster_main/accessories/
     - assets/sounds/

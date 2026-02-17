@@ -28,14 +28,14 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
   double _idleTime = 0;
   static const double _idleAmplitude = 0.035; // 3.5%
   static const double _idleSpeed = 2.5;
-  GameWorld currentWorld = GameWorld.world1;
+  GameLevel currentLevel = GameLevel.level1;
 
   @override
   Future<void> onLoad() async {
     FlameAudio.audioCache.prefix = 'assets/sounds/';
     await FlameAudio.audioCache.loadAll([..._happySounds, ..._sadSounds]);
 
-    await _loadSkinSprites(currentWorld);
+    await _loadSkinSprites(currentLevel);
     sprite = idleSprite;
     size = Vector2.all(_idleSize);
 
@@ -46,9 +46,9 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     _applyAccessoryVisibility();
   }
 
-  Future<void> loadWorldSkin(GameWorld world) async {
-    currentWorld = world;
-    await _loadSkinSprites(world);
+  Future<void> loadLevelSkin(GameLevel level) async {
+    currentLevel = level;
+    await _loadSkinSprites(level);
 
     showIdle();
     _applyAccessoryVisibility();
@@ -57,19 +57,19 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
   Future<void> setMonsterId(String value) async {
     if (monsterId == value) return;
     monsterId = value;
-    await _loadSkinSprites(currentWorld);
+    await _loadSkinSprites(currentLevel);
     showIdle();
     _applyAccessoryVisibility();
   }
 
-  Future<void> _loadSkinSprites(GameWorld world) async {
-    idleSprite = await game.loadSprite(_skinAssetPath(world, 'idle'));
-    happySprite = await game.loadSprite(_skinAssetPath(world, 'happy'));
-    sadSprite = await game.loadSprite(_skinAssetPath(world, 'sad'));
+  Future<void> _loadSkinSprites(GameLevel level) async {
+    idleSprite = await game.loadSprite(_skinAssetPath(level, 'idle'));
+    happySprite = await game.loadSprite(_skinAssetPath(level, 'happy'));
+    sadSprite = await game.loadSprite(_skinAssetPath(level, 'sad'));
   }
 
-  String _skinAssetPath(GameWorld world, String state) {
-    return 'characters/${world.name}/$monsterId/$state.png';
+  String _skinAssetPath(GameLevel level, String state) {
+    return 'characters/${level.assetFolder}/$monsterId/$state.png';
   }
 
   @override

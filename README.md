@@ -1,19 +1,20 @@
 # Monster Tap Game
 
-Kid-friendly Flutter + Flame game where the player feeds a monster by tapping good items and avoiding bad ones.
+Kid-friendly Flutter + Flame game where the player feeds a monster by swiping good items to the monster and bad items to the bin.
 
 ## Current Features
 
-- World-based progression (`World 1 -> World 2`) by score threshold.
+- Level-based progression (`Level 1 -> Level 2`) with unlock rules.
 - Falling item gameplay with score/lives system.
 - Particle effects and simple reaction animations.
 - In-game menu with:
   - `Resume`
   - `Start New Game`
   - `My Monster`
+  - `Levels`
 - Monster customization entry (`My Monster`) from both start screen and in-game menu.
 - Coins currency for cosmetics.
-- Accessory system (currently `Classic Hat` for World 1 monster):
+- Accessory system (for Level 1 monster assets):
   - Preview in customization screen (even when locked)
   - Unlock/apply flow with coins
   - Equipped accessory appears in gameplay across monster states (`idle`, `happy`, `sad`).
@@ -38,8 +39,6 @@ lib/
       falling_item.dart
       score_display.dart
       game_over_display.dart
-    overlays/
-      world_transition_overlay.dart
     effects/
       tap_burst.dart
 ```
@@ -66,14 +65,14 @@ assets/
       chili.png
       onion.png
     characters/
-      world1/
+      level1/
         monster_main/
           idle.png
           happy.png
           sad.png
           accessories/
             hat.png
-      world2/
+      level2/
         monster_main/
           idle.png
           happy.png
@@ -103,6 +102,6 @@ Then hard refresh browser (`Ctrl+Shift+R`).
 
 ## Notes
 
-- HUD currently shows `Score`, `Gold`, `World`, lives, and goal text.
+- HUD currently shows `Score`, `Gold`, `Level`, lives, and goal text.
 - `Best score` is not shown in UI anymore.
 - Coins are earned from run score and spent in `My Monster`.

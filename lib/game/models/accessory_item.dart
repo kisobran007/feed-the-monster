@@ -8,7 +8,7 @@ class AccessoryItem {
   final String id;
   final String label;
   final String monsterId;
-  final GameWorld world;
+  final GameLevel level;
   final AccessorySlot slot;
   final int cost;
   final String assetPath;
@@ -17,7 +17,7 @@ class AccessoryItem {
     required this.id,
     required this.label,
     required this.monsterId,
-    required this.world,
+    required this.level,
     required this.slot,
     required this.cost,
     required this.assetPath,
@@ -36,38 +36,38 @@ class AccessoryCatalog {
       id: world1PartyHatId,
       label: 'Party Hat',
       monsterId: monsterMainId,
-      world: GameWorld.world1,
+      level: GameLevel.level1,
       slot: AccessorySlot.hat,
       cost: 60,
-      assetPath: 'characters/world1/monster_main/accessories/hat_party.png',
+      assetPath: 'characters/level1/monster_main/accessories/hat_party.png',
     ),
     AccessoryItem(
       id: world1CrownHatId,
       label: 'Crown Hat',
       monsterId: monsterMainId,
-      world: GameWorld.world1,
+      level: GameLevel.level1,
       slot: AccessorySlot.hat,
       cost: 140,
-      assetPath: 'characters/world1/monster_main/accessories/hat_crown.png',
+      assetPath: 'characters/level1/monster_main/accessories/hat_crown.png',
     ),
     AccessoryItem(
       id: world1WizardHatId,
       label: 'Wizard Hat',
       monsterId: monsterMainId,
-      world: GameWorld.world1,
+      level: GameLevel.level1,
       slot: AccessorySlot.hat,
       cost: 120,
-      assetPath: 'characters/world1/monster_main/accessories/hat_wizard.png',
+      assetPath: 'characters/level1/monster_main/accessories/hat_wizard.png',
     ),
     AccessoryItem(
       id: world1BaseballHatId,
       label: 'Baseball Cap',
       monsterId: monsterMainId,
-      world: GameWorld.world1,
+      level: GameLevel.level1,
       slot: AccessorySlot.hat,
       cost: 90,
       assetPath:
-          'characters/world1/monster_main/accessories/hat_baseball_cap.png',
+          'characters/level1/monster_main/accessories/hat_baseball_cap.png',
     ),
   ];
 
@@ -79,11 +79,11 @@ class AccessoryCatalog {
   }
 
   static List<AccessoryItem> forMonster({
-    required GameWorld world,
+    required GameLevel level,
     required String monsterId,
   }) {
     return items
-        .where((item) => item.world == world && item.monsterId == monsterId)
+        .where((item) => item.level == level && item.monsterId == monsterId)
         .toList();
   }
 }

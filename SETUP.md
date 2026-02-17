@@ -27,14 +27,14 @@ assets/
     backgrounds/
     items/
     characters/
-      world1/monster_main/
-      world1/monster_main/accessories/
-      world2/monster_main/
-      world2/monster_main/accessories/
+      level1/monster_main/
+      level1/monster_main/accessories/
+      level2/monster_main/
+      level2/monster_main/accessories/
   sounds/
 ```
 
-Required monster sprite names per world:
+Required monster sprite names per level:
 
 - `idle.png`
 - `happy.png`
@@ -42,7 +42,7 @@ Required monster sprite names per world:
 
 Current accessory example:
 
-- `assets/images/characters/world1/monster_main/accessories/hat.png`
+- `assets/images/characters/level1/monster_main/accessories/hat_party.png`
 
 ## 4. pubspec.yaml Assets
 
@@ -54,10 +54,10 @@ flutter:
   assets:
     - assets/images/backgrounds/
     - assets/images/items/
-    - assets/images/characters/world1/monster_main/
-    - assets/images/characters/world1/monster_main/accessories/
-    - assets/images/characters/world2/monster_main/
-    - assets/images/characters/world2/monster_main/accessories/
+    - assets/images/characters/level1/monster_main/
+    - assets/images/characters/level1/monster_main/accessories/
+    - assets/images/characters/level2/monster_main/
+    - assets/images/characters/level2/monster_main/accessories/
     - assets/sounds/
 ```
 
@@ -89,11 +89,12 @@ Then hard refresh browser (`Ctrl+Shift+R`).
 
 ## 7. Gameplay Controls
 
-- Start screen: `Start The Game`, `My Monster`
+- Start screen: `Start The Game`, `My Monster`, `Levels`
 - In-game: `Menu` button (top-right)
   - `Resume`
   - `Start New Game`
   - `My Monster`
+  - `Levels`
 
 ## 8. Customization Flow
 
