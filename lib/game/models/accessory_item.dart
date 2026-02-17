@@ -28,6 +28,8 @@ class AccessoryCatalog {
   static const String monsterMainId = 'monster_main';
   static const String world1PartyHatId = 'world1_monster_main_hat_party';
   static const String world1CrownHatId = 'world1_monster_main_hat_crown';
+  static const String world1WizardHatId = 'world1_monster_main_hat_wizard';
+  static const String world1BaseballHatId = 'world1_monster_main_hat_baseball';
 
   static const List<AccessoryItem> items = [
     AccessoryItem(
@@ -47,6 +49,24 @@ class AccessoryCatalog {
       slot: AccessorySlot.hat,
       cost: 140,
       assetPath: 'characters/world1/monster_main/accessories/hat_crown.png',
+    ),
+    AccessoryItem(
+      id: world1WizardHatId,
+      label: 'Wizard Hat',
+      monsterId: monsterMainId,
+      world: GameWorld.world1,
+      slot: AccessorySlot.hat,
+      cost: 120,
+      assetPath: 'characters/world1/monster_main/accessories/hat_wizard.png',
+    ),
+    AccessoryItem(
+      id: world1BaseballHatId,
+      label: 'Baseball Cap',
+      monsterId: monsterMainId,
+      world: GameWorld.world1,
+      slot: AccessorySlot.hat,
+      cost: 90,
+      assetPath: 'characters/world1/monster_main/accessories/hat_baseball_cap.png',
     ),
   ];
 
