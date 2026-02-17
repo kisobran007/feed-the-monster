@@ -31,15 +31,19 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static const String _unlockedAccessoryIdsKey = 'unlocked_accessory_ids';
   static const String _equippedAccessoryByTargetKey =
       'equipped_accessory_by_target';
+  static const String _selectedMonsterIdKey = 'selected_monster_id';
+  static const String _unlockedMonsterIdsKey = 'unlocked_monster_ids';
   static const String _world1HatUnlockedKey = 'skin_world1_hat_unlocked';
   static const String _world1HatEquippedKey = 'skin_world1_hat_equipped';
-  static const String _monsterMainId = AccessoryCatalog.monsterMainId;
+  static const String _legacyMonsterMainId = AccessoryCatalog.monsterMainId;
   int score = 0;
   int lives = maxLives;
   int bestScore = 0;
   int goodStreak = 0;
   int totalCoins = 0;
   int lastRunCoinsEarned = 0;
+  String selectedMonsterId = MonsterCatalog.defaultMonsterId;
+  final Set<String> unlockedMonsterIds = <String>{};
   final Set<String> unlockedAccessoryIds = <String>{};
   final Map<String, String> equippedAccessoryByTarget = <String, String>{};
   bool isGameOver = false;
@@ -92,7 +96,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     add(background);
 
     // Add monster in dedicated bottom area
-    monster = Monster()
+    monster = Monster(monsterId: selectedMonsterId)
       ..position = Vector2(
           size.x * _monsterXRatio, monsterAreaTopY + (monsterAreaHeight * 0.6))
       ..anchor = Anchor.center;
@@ -506,6 +510,22 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   Future<void> loadCustomizationProgress() async {
     final prefs = await SharedPreferences.getInstance();
     totalCoins = prefs.getInt(_coinsKey) ?? 0;
+    unlockedMonsterIds
+      ..clear()
+      ..addAll(prefs.getStringList(_unlockedMonsterIdsKey) ?? const []);
+    if (unlockedMonsterIds.isEmpty) {
+      unlockedMonsterIds.add(MonsterCatalog.defaultMonsterId);
+    }
+    final persistedMonsterId = prefs.getString(_selectedMonsterIdKey);
+    if (persistedMonsterId != null &&
+        MonsterCatalog.byId(persistedMonsterId) != null &&
+        unlockedMonsterIds.contains(persistedMonsterId)) {
+      selectedMonsterId = persistedMonsterId;
+    } else {
+      selectedMonsterId = MonsterCatalog.defaultMonsterId;
+      unlockedMonsterIds.add(MonsterCatalog.defaultMonsterId);
+    }
+
     unlockedAccessoryIds
       ..clear()
       ..addAll(prefs.getStringList(_unlockedAccessoryIdsKey) ?? const []);
@@ -530,18 +550,22 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       unlockedAccessoryIds.add(AccessoryCatalog.world1PartyHatId);
       if (legacyEquipped) {
         equippedAccessoryByTarget[
-                _targetKey(GameWorld.world1, _monsterMainId)] =
+                _targetKey(GameWorld.world1, _legacyMonsterMainId)] =
             AccessoryCatalog.world1PartyHatId;
       }
       await _saveCustomizationProgress();
     }
 
+    await _applySelectedMonster();
     _applyMonsterAccessories();
   }
 
   Future<void> _saveCustomizationProgress() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_coinsKey, totalCoins);
+    await prefs.setString(_selectedMonsterIdKey, selectedMonsterId);
+    await prefs.setStringList(
+        _unlockedMonsterIdsKey, unlockedMonsterIds.toList());
     await prefs.setStringList(
         _unlockedAccessoryIdsKey, unlockedAccessoryIds.toList());
     await prefs.setString(
@@ -557,7 +581,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (!isLoaded || !monster.isLoaded) return;
     final equippedId = equippedAccessoryIdForTarget(
       world: currentWorld,
-      monsterId: _monsterMainId,
+      monsterId: selectedMonsterId,
     );
     final equippedItem =
         equippedId == null ? null : AccessoryCatalog.byId(equippedId);
@@ -585,7 +609,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     await setAccessoryEquipped(
       AccessoryCatalog.world1PartyHatId,
       world: GameWorld.world1,
-      monsterId: _monsterMainId,
+      monsterId: _legacyMonsterMainId,
     );
     return true;
   }
@@ -596,13 +620,13 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       await setAccessoryEquipped(
         AccessoryCatalog.world1PartyHatId,
         world: GameWorld.world1,
-        monsterId: _monsterMainId,
+        monsterId: _legacyMonsterMainId,
       );
       return;
     }
     await clearEquippedAccessory(
       world: GameWorld.world1,
-      monsterId: _monsterMainId,
+      monsterId: _legacyMonsterMainId,
     );
   }
 
@@ -669,11 +693,46 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   bool get isWorld1HatEquipped => isAccessoryEquipped(
         accessoryId: AccessoryCatalog.world1PartyHatId,
         world: GameWorld.world1,
-        monsterId: _monsterMainId,
+        monsterId: _legacyMonsterMainId,
       );
+
+  List<MonsterCharacter> get availableMonsters => MonsterCatalog.characters;
+
+  bool isMonsterUnlocked(String monsterId) {
+    return unlockedMonsterIds.contains(monsterId);
+  }
+
+  bool isMonsterSelected(String monsterId) {
+    return selectedMonsterId == monsterId;
+  }
+
+  Future<bool> unlockMonster(String monsterId) async {
+    if (isMonsterUnlocked(monsterId)) return true;
+    final character = MonsterCatalog.byId(monsterId);
+    if (character == null) return false;
+    if (totalCoins < character.unlockCost) return false;
+    totalCoins -= character.unlockCost;
+    unlockedMonsterIds.add(monsterId);
+    await _saveCustomizationProgress();
+    return true;
+  }
+
+  Future<void> selectMonster(String monsterId) async {
+    if (!isMonsterUnlocked(monsterId)) return;
+    if (selectedMonsterId == monsterId) return;
+    selectedMonsterId = monsterId;
+    await _saveCustomizationProgress();
+    await _applySelectedMonster();
+    _applyMonsterAccessories();
+  }
 
   String _targetKey(GameWorld world, String monsterId) {
     return '${world.name}:$monsterId';
+  }
+
+  Future<void> _applySelectedMonster() async {
+    if (!isLoaded || !monster.isLoaded) return;
+    await monster.setMonsterId(selectedMonsterId);
   }
 
   Future<void> _saveBestScore() async {

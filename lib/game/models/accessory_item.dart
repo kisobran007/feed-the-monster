@@ -25,7 +25,7 @@ class AccessoryItem {
 }
 
 class AccessoryCatalog {
-  static const String monsterMainId = 'monster_main';
+  static const String monsterMainId = MonsterCatalog.monsterMainId;
   static const String world1PartyHatId = 'world1_monster_main_hat_party';
   static const String world1CrownHatId = 'world1_monster_main_hat_crown';
   static const String world1WizardHatId = 'world1_monster_main_hat_wizard';
@@ -66,7 +66,8 @@ class AccessoryCatalog {
       world: GameWorld.world1,
       slot: AccessorySlot.hat,
       cost: 90,
-      assetPath: 'characters/world1/monster_main/accessories/hat_baseball_cap.png',
+      assetPath:
+          'characters/world1/monster_main/accessories/hat_baseball_cap.png',
     ),
   ];
 

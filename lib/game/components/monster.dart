@@ -1,18 +1,11 @@
 part of '../../main.dart';
+
 class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
-  static const String _monsterId = 'monster_main';
-  static const Map<GameWorld, Map<String, String>> _skinAssetPaths = {
-    GameWorld.world1: {
-      'idle': 'characters/world1/$_monsterId/idle.png',
-      'happy': 'characters/world1/$_monsterId/happy.png',
-      'sad': 'characters/world1/$_monsterId/sad.png',
-    },
-    GameWorld.world2: {
-      'idle': 'characters/world2/$_monsterId/idle.png',
-      'happy': 'characters/world2/$_monsterId/happy.png',
-      'sad': 'characters/world2/$_monsterId/sad.png',
-    },
-  };
+  String monsterId;
+
+  Monster({
+    required this.monsterId,
+  });
 
   String currentState = 'idle';
   int _reactionId = 0;
@@ -46,8 +39,7 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     sprite = idleSprite;
     size = Vector2.all(_idleSize);
 
-    reactionIndicator = MonsterReactionIndicator()
-      ..anchor = Anchor.center;
+    reactionIndicator = MonsterReactionIndicator()..anchor = Anchor.center;
     add(reactionIndicator);
     _layoutReactionIndicator();
     _layoutAccessories();
@@ -62,14 +54,22 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     _applyAccessoryVisibility();
   }
 
+  Future<void> setMonsterId(String value) async {
+    if (monsterId == value) return;
+    monsterId = value;
+    await _loadSkinSprites(currentWorld);
+    showIdle();
+    _applyAccessoryVisibility();
+  }
+
   Future<void> _loadSkinSprites(GameWorld world) async {
-    final skinPaths = _skinAssetPaths[world];
-    if (skinPaths == null) {
-      throw StateError('Missing skin path config for world: $world');
-    }
-    idleSprite = await game.loadSprite(skinPaths['idle']!);
-    happySprite = await game.loadSprite(skinPaths['happy']!);
-    sadSprite = await game.loadSprite(skinPaths['sad']!);
+    idleSprite = await game.loadSprite(_skinAssetPath(world, 'idle'));
+    happySprite = await game.loadSprite(_skinAssetPath(world, 'happy'));
+    sadSprite = await game.loadSprite(_skinAssetPath(world, 'sad'));
+  }
+
+  String _skinAssetPath(GameWorld world, String state) {
+    return 'characters/${world.name}/$monsterId/$state.png';
   }
 
   @override
@@ -78,8 +78,7 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
 
     if (currentState == 'idle') {
       _idleTime += dt;
-      final scaleValue =
-          1 + _idleAmplitude * sin(_idleTime * _idleSpeed);
+      final scaleValue = 1 + _idleAmplitude * sin(_idleTime * _idleSpeed);
       scale = Vector2.all(scaleValue);
     } else {
       // reset scale when not idle
@@ -308,4 +307,3 @@ class MonsterReactionIndicator extends PositionComponent {
     );
   }
 }
-

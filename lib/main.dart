@@ -10,6 +10,7 @@ import 'dart:math';
 part 'app/game_shell.dart';
 part 'game/monster_tap_game.dart';
 part 'game/models/game_world.dart';
+part 'game/models/monster_character.dart';
 part 'game/models/accessory_item.dart';
 part 'game/components/monster.dart';
 part 'game/components/falling_item.dart';

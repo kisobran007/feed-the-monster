@@ -77,39 +77,57 @@ class _GameScreenState extends State<GameScreen> {
     var previewState = 'idle';
     var coins = game.totalCoins;
     var showHatPreview = true;
-    final hatItems = game
-        .accessoriesFor(
-          world: GameWorld.world1,
-          monsterId: AccessoryCatalog.monsterMainId,
-        )
-        .where((item) => item.slot == AccessorySlot.hat)
-        .toList();
-    String selectedHatId = hatItems.first.id;
-    final equippedHatId = game.equippedAccessoryIdForTarget(
-      world: GameWorld.world1,
-      monsterId: AccessoryCatalog.monsterMainId,
-    );
-    if (equippedHatId != null &&
-        hatItems.any((item) => item.id == equippedHatId)) {
-      selectedHatId = equippedHatId;
-    }
+    String selectedMonsterId = game.selectedMonsterId;
+    String? selectedHatId;
 
     await showDialog<void>(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            final selectedHat =
-                hatItems.firstWhere((item) => item.id == selectedHatId);
-            final hatUnlocked = game.isAccessoryUnlocked(selectedHat.id);
-            final hatEquipped = game.isAccessoryEquipped(
-              accessoryId: selectedHat.id,
-              world: GameWorld.world1,
-              monsterId: AccessoryCatalog.monsterMainId,
+            final monsterItems = game.availableMonsters;
+            final selectedMonster = monsterItems.firstWhere(
+              (monster) => monster.id == selectedMonsterId,
+              orElse: () => monsterItems.first,
             );
+            final monsterUnlocked = game.isMonsterUnlocked(selectedMonster.id);
+            final monsterSelected = game.isMonsterSelected(selectedMonster.id);
+            final hatItems = game
+                .accessoriesFor(
+                  world: GameWorld.world1,
+                  monsterId: selectedMonster.id,
+                )
+                .where((item) => item.slot == AccessorySlot.hat)
+                .toList();
+            final equippedHatId = game.equippedAccessoryIdForTarget(
+              world: GameWorld.world1,
+              monsterId: selectedMonster.id,
+            );
+            if (selectedHatId == null ||
+                !hatItems.any((item) => item.id == selectedHatId)) {
+              selectedHatId = equippedHatId;
+              if (selectedHatId == null && hatItems.isNotEmpty) {
+                selectedHatId = hatItems.first.id;
+              }
+            }
+            final selectedHat = selectedHatId == null
+                ? null
+                : hatItems.firstWhere((item) => item.id == selectedHatId);
+            final hatUnlocked = selectedHat != null
+                ? game.isAccessoryUnlocked(selectedHat.id)
+                : false;
+            final hatEquipped = selectedHat != null
+                ? game.isAccessoryEquipped(
+                    accessoryId: selectedHat.id,
+                    world: GameWorld.world1,
+                    monsterId: selectedMonster.id,
+                  )
+                : false;
             final monsterPath =
-                'assets/images/characters/world1/monster_main/$previewState.png';
-            final hatPath = 'assets/images/${selectedHat.assetPath}';
+                'assets/images/characters/world1/${selectedMonster.id}/$previewState.png';
+            final hatPath = selectedHat == null
+                ? null
+                : 'assets/images/${selectedHat.assetPath}';
 
             return AlertDialog(
               backgroundColor: const Color(0xFF1F1F1F),
@@ -155,7 +173,7 @@ class _GameScreenState extends State<GameScreen> {
                                 child: Image.asset(monsterPath,
                                     fit: BoxFit.contain),
                               ),
-                              if (showHatPreview)
+                              if (showHatPreview && hatPath != null)
                                 Positioned(
                                   top: 8,
                                   child: SizedBox(
@@ -197,6 +215,121 @@ class _GameScreenState extends State<GameScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0x22000000),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0x44FFFFFF)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Monsters',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: monsterItems
+                                    .map(
+                                      (monster) => ChoiceChip(
+                                        label: Text(monster.label),
+                                        selected:
+                                            selectedMonsterId == monster.id,
+                                        onSelected: (_) {
+                                          setDialogState(() {
+                                            selectedMonsterId = monster.id;
+                                          });
+                                        },
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                monsterUnlocked
+                                    ? (monsterSelected
+                                        ? 'Status: Selected in game'
+                                        : 'Status: Unlocked')
+                                    : 'Status: Locked',
+                                style: const TextStyle(color: Colors.white70),
+                              ),
+                              if (!monsterUnlocked)
+                                Text(
+                                  'Unlock cost: ${selectedMonster.unlockCost} coins',
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: [
+                                  if (!monsterUnlocked)
+                                    ElevatedButton(
+                                      onPressed:
+                                          coins >= selectedMonster.unlockCost
+                                              ? () async {
+                                                  final ok =
+                                                      await game.unlockMonster(
+                                                          selectedMonster.id);
+                                                  if (!ok) return;
+                                                  await game.selectMonster(
+                                                      selectedMonster.id);
+                                                  await game
+                                                      .loadCustomizationProgress();
+                                                  setDialogState(() {
+                                                    coins = game.totalCoins;
+                                                    selectedMonsterId =
+                                                        game.selectedMonsterId;
+                                                    selectedHatId = null;
+                                                  });
+                                                }
+                                              : null,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFF43A047),
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      child: const Text('Unlock & Select'),
+                                    ),
+                                  if (monsterUnlocked)
+                                    ElevatedButton(
+                                      onPressed: monsterSelected
+                                          ? null
+                                          : () async {
+                                              await game.selectMonster(
+                                                  selectedMonster.id);
+                                              await game
+                                                  .loadCustomizationProgress();
+                                              setDialogState(() {
+                                                coins = game.totalCoins;
+                                                selectedMonsterId =
+                                                    game.selectedMonsterId;
+                                                selectedHatId = null;
+                                              });
+                                            },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFF42A5F5),
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      child: Text(monsterSelected
+                                          ? 'Selected'
+                                          : 'Select'),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 14),
                         Container(
                           width: double.infinity,
@@ -219,8 +352,13 @@ class _GameScreenState extends State<GameScreen> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     padding: const EdgeInsets.all(4),
-                                    child: Image.asset(hatPath,
-                                        fit: BoxFit.contain),
+                                    child: hatPath == null
+                                        ? const Icon(
+                                            Icons.block,
+                                            color: Colors.white54,
+                                          )
+                                        : Image.asset(hatPath,
+                                            fit: BoxFit.contain),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
@@ -229,7 +367,8 @@ class _GameScreenState extends State<GameScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          selectedHat.label,
+                                          selectedHat?.label ??
+                                              'No hats available',
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontWeight: FontWeight.w700,
@@ -237,7 +376,9 @@ class _GameScreenState extends State<GameScreen> {
                                           ),
                                         ),
                                         Text(
-                                          'Cost: ${selectedHat.cost} coins',
+                                          selectedHat == null
+                                              ? 'Add hat assets for this monster'
+                                              : 'Cost: ${selectedHat.cost} coins',
                                           style: const TextStyle(
                                               color: Colors.white70),
                                         ),
@@ -254,14 +395,18 @@ class _GameScreenState extends State<GameScreen> {
                               ),
                               const SizedBox(height: 10),
                               Text(
-                                hatUnlocked
-                                    ? (hatEquipped
-                                        ? 'Status: Equipped in game'
-                                        : 'Status: Unlocked')
-                                    : 'Status: Locked',
+                                selectedHat == null
+                                    ? 'Status: No items'
+                                    : hatUnlocked
+                                        ? (hatEquipped
+                                            ? 'Status: Equipped in game'
+                                            : 'Status: Unlocked')
+                                        : 'Status: Locked',
                                 style: const TextStyle(color: Colors.white70),
                               ),
-                              if (!hatUnlocked && coins < selectedHat.cost)
+                              if (selectedHat != null &&
+                                  !hatUnlocked &&
+                                  coins < selectedHat.cost)
                                 Text(
                                   'Need ${selectedHat.cost - coins} more coins',
                                   style:
@@ -298,7 +443,7 @@ class _GameScreenState extends State<GameScreen> {
                                 spacing: 10,
                                 runSpacing: 10,
                                 children: [
-                                  if (!hatUnlocked)
+                                  if (selectedHat != null && !hatUnlocked)
                                     ElevatedButton(
                                       onPressed: coins >= selectedHat.cost
                                           ? () async {
@@ -309,8 +454,7 @@ class _GameScreenState extends State<GameScreen> {
                                               await game.setAccessoryEquipped(
                                                 selectedHat.id,
                                                 world: GameWorld.world1,
-                                                monsterId: AccessoryCatalog
-                                                    .monsterMainId,
+                                                monsterId: selectedMonster.id,
                                               );
                                               await game
                                                   .loadCustomizationProgress();
@@ -326,7 +470,7 @@ class _GameScreenState extends State<GameScreen> {
                                       ),
                                       child: const Text('Unlock & Apply'),
                                     ),
-                                  if (hatUnlocked)
+                                  if (selectedHat != null && hatUnlocked)
                                     ElevatedButton(
                                       onPressed: hatEquipped
                                           ? null
@@ -334,8 +478,7 @@ class _GameScreenState extends State<GameScreen> {
                                               await game.setAccessoryEquipped(
                                                 selectedHat.id,
                                                 world: GameWorld.world1,
-                                                monsterId: AccessoryCatalog
-                                                    .monsterMainId,
+                                                monsterId: selectedMonster.id,
                                               );
                                               await game
                                                   .loadCustomizationProgress();
@@ -351,14 +494,13 @@ class _GameScreenState extends State<GameScreen> {
                                       child: Text(
                                           hatEquipped ? 'Applied' : 'Apply'),
                                     ),
-                                  if (hatUnlocked)
+                                  if (selectedHat != null && hatUnlocked)
                                     OutlinedButton(
                                       onPressed: hatEquipped
                                           ? () async {
                                               await game.clearEquippedAccessory(
                                                 world: GameWorld.world1,
-                                                monsterId: AccessoryCatalog
-                                                    .monsterMainId,
+                                                monsterId: selectedMonster.id,
                                               );
                                               await game
                                                   .loadCustomizationProgress();
