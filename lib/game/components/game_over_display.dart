@@ -2,7 +2,6 @@ part of '../../main.dart';
 class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameReference<MonsterTapGame> {
   late TextComponent gameOverText;
   late TextComponent finalScoreText;
-  late TextComponent bestScoreText;
   late TextComponent survivalTimeText;
   late TextComponent restartText;
   bool isVisible = false;
@@ -36,18 +35,6 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRefere
       position: Vector2(size.x / 2, 140),
     );
 
-    bestScoreText = TextComponent(
-      text: '',
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 28,
-        ),
-      ),
-      anchor: Anchor.center,
-      position: Vector2(size.x / 2, 185),
-    );
-
     survivalTimeText = TextComponent(
       text: '',
       textRenderer: TextPaint(
@@ -74,7 +61,6 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRefere
 
     add(gameOverText);
     add(finalScoreText);
-    add(bestScoreText);
     add(survivalTimeText);
     add(restartText);
     _layoutText();
@@ -87,16 +73,14 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRefere
 
   void _layoutText() {
     gameOverText.position = Vector2(size.x / 2, size.y * 0.22);
-    finalScoreText.position = Vector2(size.x / 2, size.y * 0.4);
-    bestScoreText.position = Vector2(size.x / 2, size.y * 0.54);
-    survivalTimeText.position = Vector2(size.x / 2, size.y * 0.67);
+    finalScoreText.position = Vector2(size.x / 2, size.y * 0.44);
+    survivalTimeText.position = Vector2(size.x / 2, size.y * 0.60);
     restartText.position = Vector2(size.x / 2, size.y * 0.84);
   }
 
-  void show(int finalScore, int bestScore, double survivalTime) {
+  void show(int finalScore, double survivalTime) {
     isVisible = true;
     finalScoreText.text = 'Final Score: $finalScore';
-    bestScoreText.text = 'Best Score: $bestScore';
     survivalTimeText.text = 'Time: ${survivalTime.toStringAsFixed(1)}s';
   }
 

@@ -1,15 +1,15 @@
 part of '../../main.dart';
 class ScoreDisplay extends PositionComponent {
   late TextComponent scoreText;
+  late TextComponent goldText;
   late TextComponent worldText;
   late TextComponent goalText;
-  late TextComponent bestText;
   late HeartsDisplay heartsDisplay;
 
   int _score = 0;
+  int _gold = 0;
   int _lives = 3;
   int _maxLives = 3;
-  int _bestScore = 0;
   GameWorld _world = GameWorld.world1;
   String _goal = '';
 
@@ -29,6 +29,18 @@ class ScoreDisplay extends PositionComponent {
       ),
     )..position = Vector2.zero();
 
+    goldText = TextComponent(
+      text: '',
+      textRenderer: TextPaint(
+        style: const TextStyle(
+          color: Color(0xFFFFD54F),
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+          shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+        ),
+      ),
+    )..position = Vector2(0, 32);
+
     worldText = TextComponent(
       text: '',
       textRenderer: TextPaint(
@@ -39,12 +51,12 @@ class ScoreDisplay extends PositionComponent {
           shadows: [Shadow(color: Colors.black, blurRadius: 4)],
         ),
       ),
-    )..position = Vector2(0, 34);
+    )..position = Vector2(0, 64);
 
     heartsDisplay = HeartsDisplay(
       maxLives: _maxLives,
       lives: _lives,
-    )..position = Vector2(0, 68);
+    )..position = Vector2(0, 98);
 
     goalText = TextComponent(
       text: '',
@@ -56,41 +68,29 @@ class ScoreDisplay extends PositionComponent {
           shadows: [Shadow(color: Colors.black, blurRadius: 4)],
         ),
       ),
-    )..position = Vector2(0, 112);
-
-    bestText = TextComponent(
-      text: '',
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-          shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-        ),
-      ),
-    )..position = Vector2(0, 144);
+    )..position = Vector2(0, 142);
 
     add(scoreText);
+    add(goldText);
     add(worldText);
     add(heartsDisplay);
     add(goalText);
-    add(bestText);
     _applyHud();
   }
 
   void updateHud(
     int score,
+    int gold,
     int lives,
     int maxLives,
-    int bestScore,
     GameWorld world,
     String goal, {
     bool forceRepaint = false,
   }) {
     _score = score;
+    _gold = gold;
     _lives = lives;
     _maxLives = maxLives;
-    _bestScore = bestScore;
     _world = world;
     _goal = goal;
     if (!isLoaded) return;
@@ -99,9 +99,9 @@ class ScoreDisplay extends PositionComponent {
 
   void _applyHud() {
     scoreText.text = 'Score: $_score';
+    goldText.text = 'Gold: $_gold';
     worldText.text = _world == GameWorld.world1 ? 'World 1' : 'World 2';
     goalText.text = _goal;
-    bestText.text = 'Best: $_bestScore';
     heartsDisplay
       ..maxLives = _maxLives
       ..lives = _lives;

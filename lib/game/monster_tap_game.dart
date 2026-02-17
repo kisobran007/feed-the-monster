@@ -87,9 +87,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     add(scoreDisplay);
     scoreDisplay.updateHud(
       score,
+      totalCoins,
       lives,
       maxLives,
-      bestScore,
       currentWorld,
       _goalText(),
       forceRepaint: true,
@@ -105,9 +105,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     await _initBackgroundMusic();
     scoreDisplay.updateHud(
       score,
+      totalCoins,
       lives,
       maxLives,
-      bestScore,
       currentWorld,
       _goalText(),
       forceRepaint: true,
@@ -232,9 +232,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     _checkWorldProgression();
     scoreDisplay.updateHud(
       score,
+      totalCoins,
       lives,
       maxLives,
-      bestScore,
       currentWorld,
       _goalText(),
     );
@@ -257,9 +257,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     }
     scoreDisplay.updateHud(
       score,
+      totalCoins,
       lives,
       maxLives,
-      bestScore,
       currentWorld,
       _goalText(),
     );
@@ -276,13 +276,13 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     }
     scoreDisplay.updateHud(
       score,
+      totalCoins,
       lives,
       maxLives,
-      bestScore,
       currentWorld,
       _goalText(),
     );
-    gameOverDisplay.show(score, bestScore, survivalTime);
+    gameOverDisplay.show(score, survivalTime);
   }
 
   void restartGame() {
@@ -306,9 +306,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     monster.showIdle();
     scoreDisplay.updateHud(
       score,
+      totalCoins,
       lives,
       maxLives,
-      bestScore,
       currentWorld,
       _goalText(),
       forceRepaint: true,
@@ -327,9 +327,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       if (!isGameOver) {
         scoreDisplay.updateHud(
           score,
+          totalCoins,
           lives,
           maxLives,
-          bestScore,
           currentWorld,
           _goalText(),
           forceRepaint: true,
@@ -381,9 +381,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
           _applyWorldTheme(newWorld);
           scoreDisplay.updateHud(
             score,
+            totalCoins,
             lives,
             maxLives,
-            bestScore,
             currentWorld,
             _goalText(),
           );
@@ -415,7 +415,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (currentWorld == GameWorld.world1) {
       return 'Goal: reach $world2ScoreThreshold points to unlock World 2';
     }
-    return 'Goal: survive and beat best score';
+    return 'Goal: survive and collect more gold';
   }
 
   void _triggerScreenShake() {
@@ -568,4 +568,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       ..setDisplaySize(overlaySize);
   }
 }
+
+
 

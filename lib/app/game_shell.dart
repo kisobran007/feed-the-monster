@@ -77,6 +77,7 @@ class _GameScreenState extends State<GameScreen> {
     var coins = game.totalCoins;
     var hatUnlocked = game.isWorld1HatUnlocked;
     var hatEquipped = game.isWorld1HatEquipped;
+    var showHatPreview = true;
 
     await showDialog<void>(
       context: context,
@@ -127,13 +128,16 @@ class _GameScreenState extends State<GameScreen> {
                           Positioned.fill(
                             child: Image.asset(monsterPath, fit: BoxFit.contain),
                           ),
-                          if (hatUnlocked && hatEquipped)
+                          if (showHatPreview)
                             Positioned(
                               top: 8,
                               child: SizedBox(
                                 width: 150,
                                 height: 92,
-                                child: Image.asset(hatPath, fit: BoxFit.contain),
+                                child: Opacity(
+                                  opacity: hatUnlocked ? 1.0 : 0.75,
+                                  child: Image.asset(hatPath, fit: BoxFit.contain),
+                                ),
                               ),
                             ),
                         ],
@@ -163,79 +167,132 @@ class _GameScreenState extends State<GameScreen> {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    Text(
-                      hatUnlocked
-                          ? (hatEquipped ? 'Hat status: Equipped' : 'Hat status: Unlocked')
-                          : 'Hat status: Locked',
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                    const SizedBox(height: 8),
-                    if (!hatUnlocked)
-                      ElevatedButton(
-                        onPressed: () async {
-                          if (coins < MonsterTapGame.world1HatCost) {
-                            ScaffoldMessenger.of(this.context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Not enough coins to unlock hat.'),
-                              ),
-                            );
-                            return;
-                          }
-                          final ok = await game.unlockWorld1Hat();
-                          if (!ok) return;
-                          await game.loadCustomizationProgress();
-                          setDialogState(() {
-                            coins = game.totalCoins;
-                            hatUnlocked = game.isWorld1HatUnlocked;
-                            hatEquipped = game.isWorld1HatEquipped;
-                          });
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF43A047),
-                          foregroundColor: Colors.white,
-                        ),
-                        child: const Text('Unlock Hat (60)'),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0x22000000),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0x44FFFFFF)),
                       ),
-                    if (hatUnlocked)
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        spacing: 10,
-                        runSpacing: 10,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          ElevatedButton(
-                            onPressed: hatEquipped
-                                ? null
-                                : () async {
-                                    await game.setWorld1HatEquipped(true);
-                                    await game.loadCustomizationProgress();
-                                    setDialogState(() {
-                                      coins = game.totalCoins;
-                                      hatUnlocked = game.isWorld1HatUnlocked;
-                                      hatEquipped = game.isWorld1HatEquipped;
-                                    });
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF42A5F5),
-                              foregroundColor: Colors.white,
-                            ),
-                            child: Text(hatEquipped ? 'Equipped' : 'Equip Hat'),
+                          Row(
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: const Color(0x33000000),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.all(4),
+                                child: Image.asset(hatPath, fit: BoxFit.contain),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Classic Hat',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Cost: ${MonsterTapGame.world1HatCost} coins',
+                                      style: const TextStyle(color: Colors.white70),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              FilterChip(
+                                label: const Text('Preview'),
+                                selected: showHatPreview,
+                                onSelected: (v) => setDialogState(() => showHatPreview = v),
+                              ),
+                            ],
                           ),
-                          OutlinedButton(
-                            onPressed: hatEquipped
-                                ? () async {
-                                    await game.setWorld1HatEquipped(false);
-                                    await game.loadCustomizationProgress();
-                                    setDialogState(() {
-                                      coins = game.totalCoins;
-                                      hatUnlocked = game.isWorld1HatUnlocked;
-                                      hatEquipped = game.isWorld1HatEquipped;
-                                    });
-                                  }
-                                : null,
-                            child: const Text('Unequip'),
+                          const SizedBox(height: 10),
+                          Text(
+                            hatUnlocked
+                                ? (hatEquipped ? 'Status: Equipped in game' : 'Status: Unlocked')
+                                : 'Status: Locked',
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                          if (!hatUnlocked && coins < MonsterTapGame.world1HatCost)
+                            Text(
+                              'Need ${MonsterTapGame.world1HatCost - coins} more coins',
+                              style: const TextStyle(color: Color(0xFFFFAB91)),
+                            ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              if (!hatUnlocked)
+                                ElevatedButton(
+                                  onPressed: coins >= MonsterTapGame.world1HatCost
+                                      ? () async {
+                                          final ok = await game.unlockWorld1Hat();
+                                          if (!ok) return;
+                                          await game.loadCustomizationProgress();
+                                          setDialogState(() {
+                                            coins = game.totalCoins;
+                                            hatUnlocked = game.isWorld1HatUnlocked;
+                                            hatEquipped = game.isWorld1HatEquipped;
+                                          });
+                                        }
+                                      : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF43A047),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: const Text('Unlock & Apply'),
+                                ),
+                              if (hatUnlocked)
+                                ElevatedButton(
+                                  onPressed: hatEquipped
+                                      ? null
+                                      : () async {
+                                          await game.setWorld1HatEquipped(true);
+                                          await game.loadCustomizationProgress();
+                                          setDialogState(() {
+                                            coins = game.totalCoins;
+                                            hatUnlocked = game.isWorld1HatUnlocked;
+                                            hatEquipped = game.isWorld1HatEquipped;
+                                          });
+                                        },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF42A5F5),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: Text(hatEquipped ? 'Applied' : 'Apply'),
+                                ),
+                              if (hatUnlocked)
+                                OutlinedButton(
+                                  onPressed: hatEquipped
+                                      ? () async {
+                                          await game.setWorld1HatEquipped(false);
+                                          await game.loadCustomizationProgress();
+                                          setDialogState(() {
+                                            coins = game.totalCoins;
+                                            hatUnlocked = game.isWorld1HatUnlocked;
+                                            hatEquipped = game.isWorld1HatEquipped;
+                                          });
+                                        }
+                                      : null,
+                                  child: const Text('Remove'),
+                                ),
+                            ],
                           ),
                         ],
                       ),
+                    ),
                   ],
                 ),
               ),
