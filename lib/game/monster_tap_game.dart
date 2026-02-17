@@ -1,7 +1,9 @@
 part of '../main.dart';
+
 // Main game class
 class MonsterTapGame extends FlameGame with TapCallbacks {
   late Monster monster;
+  late SpriteComponent trashBin;
   late ScoreDisplay scoreDisplay;
   late GameOverDisplay gameOverDisplay;
   late RectangleComponent playAreaBackground;
@@ -20,10 +22,15 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static const int goodItemPoints = 8;
   static const int badItemPointsPenalty = 3;
   static const int missedGoodItemPointsPenalty = 4;
+  static const int badItemDiscardPoints = 2;
+  static const int wrongDropPointsPenalty = 3;
+  static const int missedBadItemPointsPenalty = 2;
+  static const double _dropZoneScale = 0.72;
   static const int world1HatCost = 60;
   static const String _coinsKey = 'coins_total';
   static const String _unlockedAccessoryIdsKey = 'unlocked_accessory_ids';
-  static const String _equippedAccessoryByTargetKey = 'equipped_accessory_by_target';
+  static const String _equippedAccessoryByTargetKey =
+      'equipped_accessory_by_target';
   static const String _world1HatUnlockedKey = 'skin_world1_hat_unlocked';
   static const String _world1HatEquippedKey = 'skin_world1_hat_equipped';
   static const String _monsterMainId = AccessoryCatalog.monsterMainId;
@@ -54,11 +61,16 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     'bgm_playful_02.mp3',
   ];
   bool _musicReady = false;
+  bool _trashBinActive = false;
+  late Sprite _trashBinIdleSprite;
+  late Sprite _trashBinActiveSprite;
   static const double monsterAreaRatio = 0.28;
+  static const double _monsterXRatio = 0.22;
+  static const double _trashBinXRatio = 0.85;
 
   double get gameplayBottomY => size.y * (1 - monsterAreaRatio);
   double get monsterAreaTopY => gameplayBottomY;
-  double get monsterAreaHeight => size.y - monsterAreaTopY;  
+  double get monsterAreaHeight => size.y - monsterAreaTopY;
 
   GameWorld currentWorld = GameWorld.world1;
 
@@ -81,9 +93,19 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
     // Add monster in dedicated bottom area
     monster = Monster()
-      ..position = Vector2(size.x / 2, monsterAreaTopY + (monsterAreaHeight * 0.6))
+      ..position = Vector2(
+          size.x * _monsterXRatio, monsterAreaTopY + (monsterAreaHeight * 0.6))
       ..anchor = Anchor.center;
     add(monster);
+
+    _trashBinIdleSprite = await loadSprite('trash_bin/trash_bin_idle.png');
+    _trashBinActiveSprite = await loadSprite('trash_bin/trash_bin_active.png');
+    trashBin = SpriteComponent(
+      sprite: _trashBinIdleSprite,
+      anchor: Anchor.center,
+      priority: 5,
+    );
+    add(trashBin);
 
     // Add score display
     scoreDisplay = ScoreDisplay()..position = Vector2(20, 24);
@@ -99,8 +121,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     );
 
     // Add game over display (hidden initially)
-    gameOverDisplay = GameOverDisplay()
-      ..anchor = Anchor.center;
+    gameOverDisplay = GameOverDisplay()..anchor = Anchor.center;
     add(gameOverDisplay);
 
     await _loadBestScore();
@@ -126,14 +147,15 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (_shakeTime > 0) {
       _shakeTime = max(0, _shakeTime - dt);
     }
-    
+
     if (!isStarted || isGameOver || isPaused || isTransitioning) return;
 
     survivalTime += dt;
     _difficultyTimer += dt;
     if (_difficultyTimer >= difficultyTickSeconds) {
       _difficultyTimer = 0;
-      currentSpawnInterval = max(minSpawnInterval, currentSpawnInterval - spawnIntervalStep);
+      currentSpawnInterval =
+          max(minSpawnInterval, currentSpawnInterval - spawnIntervalStep);
       currentFallSpeed = min(maxFallSpeed, currentFallSpeed + fallSpeedStep);
     }
 
@@ -149,11 +171,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     final random = Random();
     final isGood = random.nextDouble() < goodItemChance;
 
-    final goodList =
-        currentWorld == GameWorld.world1 ? world1Good : world2Good;
+    final goodList = currentWorld == GameWorld.world1 ? world1Good : world2Good;
 
-    final badList =
-        currentWorld == GameWorld.world1 ? world1Bad : world2Bad;
+    final badList = currentWorld == GameWorld.world1 ? world1Bad : world2Bad;
 
     final itemType = isGood
         ? goodList[random.nextInt(goodList.length)]
@@ -162,8 +182,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     final item = FallingItem(
       itemType: itemType,
       isGood: isGood,
-      onTapped: handleItemTap,
+      onDropped: handleItemDropped,
       onMissed: handleItemMissed,
+      onDragMoved: handleItemDragMoved,
       fallSpeed: currentFallSpeed,
     )
       ..position = Vector2(random.nextDouble() * (size.x - 90) + 45, -50)
@@ -172,19 +193,22 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     add(item);
   }
 
-
-  void handleItemTap(FallingItem item) {
+  void handleItemDropped(FallingItem item, Vector2 dropPosition) {
     if (isGameOver || isTransitioning) return;
-    final tapPosition = item.position.clone();
+    _setTrashBinActive(false);
+    final onMonster =
+        _monsterDropRect().contains(Offset(dropPosition.x, dropPosition.y));
+    final onTrashBin =
+        _trashBinDropRect().contains(Offset(dropPosition.x, dropPosition.y));
 
-    if (item.isGood) {
+    if (item.isGood && onMonster) {
       goodStreak += 1;
       score += goodItemPoints;
       if (goodStreak >= 3) {
         monster.showStreak();
         add(
           TapBurst(
-            position: tapPosition,
+            position: dropPosition,
             baseColor: const Color(0xFFFFD54F),
             particleCount: 24,
             particleSize: 10,
@@ -204,7 +228,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       }
       add(
         TapBurst(
-          position: tapPosition,
+          position: dropPosition,
           baseColor: const Color(0xFFFFD54F),
           particleCount: 16,
           particleSize: 8,
@@ -212,15 +236,29 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
           spreadSpeed: 180,
         ),
       );
+    } else if (!item.isGood && onTrashBin) {
+      goodStreak += 1;
+      score += badItemDiscardPoints;
+      monster.showHappy();
+      add(
+        TapBurst(
+          position: dropPosition,
+          baseColor: const Color(0xFF66BB6A),
+          particleCount: 14,
+          particleSize: 8,
+          lifetime: 0.32,
+          spreadSpeed: 170,
+        ),
+      );
     } else {
       goodStreak = 0;
-      score -= badItemPointsPenalty;
+      score -= wrongDropPointsPenalty;
       lives -= 1;
       monster.showOops();
       _triggerScreenShake();
       add(
         TapBurst(
-          position: tapPosition,
+          position: dropPosition,
           baseColor: const Color(0xFFE53935),
           particleCount: 14,
           particleSize: 9,
@@ -244,15 +282,31 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     item.removeFromParent();
   }
 
+  void handleItemDragMoved(FallingItem item, Vector2 position) {
+    if (isGameOver || isTransitioning) return;
+    if (!item.isGood) {
+      final overTrashBin =
+          _trashBinDropRect().contains(Offset(position.x, position.y));
+      _setTrashBinActive(overTrashBin);
+      return;
+    }
+    _setTrashBinActive(false);
+  }
+
   void handleItemMissed(FallingItem item) {
     if (isGameOver || isTransitioning) return;
-    if (!item.isGood) return;
+    _setTrashBinActive(false);
 
-    // Missing healthy food costs one life and a small score penalty.
+    // Missing any item costs one life.
     goodStreak = 0;
     lives -= 1;
-    score -= missedGoodItemPointsPenalty;
+    if (item.isGood) {
+      score -= missedGoodItemPointsPenalty;
+    } else {
+      score -= missedBadItemPointsPenalty;
+    }
     monster.showOops();
+    _triggerScreenShake();
     _checkWorldProgression();
     if (lives <= 0) {
       triggerGameOver();
@@ -301,11 +355,15 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     currentSpawnInterval = baseSpawnInterval;
     currentFallSpeed = baseFallSpeed;
     currentWorld = GameWorld.world1;
-    
+
     // Remove all falling items
-    children.whereType<FallingItem>().toList().forEach((item) => item.removeFromParent());
-    
+    children
+        .whereType<FallingItem>()
+        .toList()
+        .forEach((item) => item.removeFromParent());
+
     gameOverDisplay.hide();
+    _setTrashBinActive(false);
     monster.showIdle();
     scoreDisplay.updateHud(
       score,
@@ -352,8 +410,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   void _checkWorldProgression() {
-    if (score >= world2ScoreThreshold &&
-        currentWorld == GameWorld.world1) {
+    if (score >= world2ScoreThreshold && currentWorld == GameWorld.world1) {
       _transitionToWorld(GameWorld.world2);
     }
   }
@@ -401,13 +458,11 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   Future<void> _applyWorldTheme(GameWorld world) async {
     switch (world) {
       case GameWorld.world1:
-        background.sprite =
-            await loadSprite('backgrounds/bg_meadow.png');
+        background.sprite = await loadSprite('backgrounds/bg_meadow.png');
         break;
 
       case GameWorld.world2:
-        background.sprite =
-            await loadSprite('backgrounds/bg_world2.png');
+        background.sprite = await loadSprite('backgrounds/bg_world2.png');
         break;
     }
     await monster.loadWorldSkin(world);
@@ -474,7 +529,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (legacyUnlocked) {
       unlockedAccessoryIds.add(AccessoryCatalog.world1PartyHatId);
       if (legacyEquipped) {
-        equippedAccessoryByTarget[_targetKey(GameWorld.world1, _monsterMainId)] =
+        equippedAccessoryByTarget[
+                _targetKey(GameWorld.world1, _monsterMainId)] =
             AccessoryCatalog.world1PartyHatId;
       }
       await _saveCustomizationProgress();
@@ -486,7 +542,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   Future<void> _saveCustomizationProgress() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_coinsKey, totalCoins);
-    await prefs.setStringList(_unlockedAccessoryIdsKey, unlockedAccessoryIds.toList());
+    await prefs.setStringList(
+        _unlockedAccessoryIdsKey, unlockedAccessoryIds.toList());
     await prefs.setString(
       _equippedAccessoryByTargetKey,
       jsonEncode(equippedAccessoryByTarget),
@@ -502,8 +559,10 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       world: currentWorld,
       monsterId: _monsterMainId,
     );
-    final equippedItem = equippedId == null ? null : AccessoryCatalog.byId(equippedId);
-    final hatItem = equippedItem?.slot == AccessorySlot.hat ? equippedItem : null;
+    final equippedItem =
+        equippedId == null ? null : AccessoryCatalog.byId(equippedId);
+    final hatItem =
+        equippedItem?.slot == AccessorySlot.hat ? equippedItem : null;
     monster.setHatAccessoryAssetPath(hatItem?.assetPath);
   }
 
@@ -570,7 +629,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     required GameWorld world,
     required String monsterId,
   }) {
-    return equippedAccessoryIdForTarget(world: world, monsterId: monsterId) == accessoryId;
+    return equippedAccessoryIdForTarget(world: world, monsterId: monsterId) ==
+        accessoryId;
   }
 
   Future<bool> unlockAccessory(String accessoryId) async {
@@ -604,7 +664,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     _applyMonsterAccessories();
   }
 
-  bool get isWorld1HatUnlocked => isAccessoryUnlocked(AccessoryCatalog.world1PartyHatId);
+  bool get isWorld1HatUnlocked =>
+      isAccessoryUnlocked(AccessoryCatalog.world1PartyHatId);
   bool get isWorld1HatEquipped => isAccessoryEquipped(
         accessoryId: AccessoryCatalog.world1PartyHatId,
         world: GameWorld.world1,
@@ -678,14 +739,42 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       ..position = Vector2.zero()
       ..size = size;
 
-    monster.position = Vector2(size.x / 2, monsterAreaTopY + (monsterAreaHeight * 0.6));
+    monster.position = Vector2(
+      size.x * _monsterXRatio,
+      monsterAreaTopY + (monsterAreaHeight * 0.6),
+    );
+    trashBin
+      ..position = Vector2(
+        size.x * _trashBinXRatio,
+        monsterAreaTopY + (monsterAreaHeight * 0.62),
+      )
+      ..size = Vector2(size.x * 0.19, size.x * 0.19);
     scoreDisplay.position = Vector2(20, 24);
 
     gameOverDisplay
       ..position = Vector2(size.x / 2, bottomY / 2)
       ..setDisplaySize(overlaySize);
   }
+
+  Rect _monsterDropRect() {
+    return Rect.fromCenter(
+      center: Offset(monster.position.x, monster.position.y),
+      width: monster.size.x * _dropZoneScale,
+      height: monster.size.y * _dropZoneScale,
+    );
+  }
+
+  Rect _trashBinDropRect() {
+    return Rect.fromCenter(
+      center: Offset(trashBin.position.x, trashBin.position.y),
+      width: trashBin.size.x * _dropZoneScale,
+      height: trashBin.size.y * _dropZoneScale,
+    );
+  }
+
+  void _setTrashBinActive(bool active) {
+    if (_trashBinActive == active) return;
+    _trashBinActive = active;
+    trashBin.sprite = active ? _trashBinActiveSprite : _trashBinIdleSprite;
+  }
 }
-
-
-

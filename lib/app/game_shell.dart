@@ -1,4 +1,5 @@
 part of '../main.dart';
+
 class GameApp extends StatelessWidget {
   const GameApp({super.key});
 
@@ -88,7 +89,8 @@ class _GameScreenState extends State<GameScreen> {
       world: GameWorld.world1,
       monsterId: AccessoryCatalog.monsterMainId,
     );
-    if (equippedHatId != null && hatItems.any((item) => item.id == equippedHatId)) {
+    if (equippedHatId != null &&
+        hatItems.any((item) => item.id == equippedHatId)) {
       selectedHatId = equippedHatId;
     }
 
@@ -97,7 +99,8 @@ class _GameScreenState extends State<GameScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            final selectedHat = hatItems.firstWhere((item) => item.id == selectedHatId);
+            final selectedHat =
+                hatItems.firstWhere((item) => item.id == selectedHatId);
             final hatUnlocked = game.isAccessoryUnlocked(selectedHat.id);
             final hatEquipped = game.isAccessoryEquipped(
               accessoryId: selectedHat.id,
@@ -110,7 +113,8 @@ class _GameScreenState extends State<GameScreen> {
 
             return AlertDialog(
               backgroundColor: const Color(0xFF1F1F1F),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
               title: const Text(
                 'My Monster',
                 style: TextStyle(
@@ -148,7 +152,8 @@ class _GameScreenState extends State<GameScreen> {
                             alignment: Alignment.center,
                             children: [
                               Positioned.fill(
-                                child: Image.asset(monsterPath, fit: BoxFit.contain),
+                                child: Image.asset(monsterPath,
+                                    fit: BoxFit.contain),
                               ),
                               if (showHatPreview)
                                 Positioned(
@@ -158,7 +163,8 @@ class _GameScreenState extends State<GameScreen> {
                                     height: 92,
                                     child: Opacity(
                                       opacity: hatUnlocked ? 1.0 : 0.75,
-                                      child: Image.asset(hatPath, fit: BoxFit.contain),
+                                      child: Image.asset(hatPath,
+                                          fit: BoxFit.contain),
                                     ),
                                   ),
                                 ),
@@ -172,19 +178,22 @@ class _GameScreenState extends State<GameScreen> {
                             ChoiceChip(
                               label: const Text('Idle'),
                               selected: previewState == 'idle',
-                              onSelected: (_) => setDialogState(() => previewState = 'idle'),
+                              onSelected: (_) =>
+                                  setDialogState(() => previewState = 'idle'),
                             ),
                             const SizedBox(width: 8),
                             ChoiceChip(
                               label: const Text('Happy'),
                               selected: previewState == 'happy',
-                              onSelected: (_) => setDialogState(() => previewState = 'happy'),
+                              onSelected: (_) =>
+                                  setDialogState(() => previewState = 'happy'),
                             ),
                             const SizedBox(width: 8),
                             ChoiceChip(
                               label: const Text('Sad'),
                               selected: previewState == 'sad',
-                              onSelected: (_) => setDialogState(() => previewState = 'sad'),
+                              onSelected: (_) =>
+                                  setDialogState(() => previewState = 'sad'),
                             ),
                           ],
                         ),
@@ -210,12 +219,14 @@ class _GameScreenState extends State<GameScreen> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     padding: const EdgeInsets.all(4),
-                                    child: Image.asset(hatPath, fit: BoxFit.contain),
+                                    child: Image.asset(hatPath,
+                                        fit: BoxFit.contain),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           selectedHat.label,
@@ -227,7 +238,8 @@ class _GameScreenState extends State<GameScreen> {
                                         ),
                                         Text(
                                           'Cost: ${selectedHat.cost} coins',
-                                          style: const TextStyle(color: Colors.white70),
+                                          style: const TextStyle(
+                                              color: Colors.white70),
                                         ),
                                       ],
                                     ),
@@ -235,21 +247,25 @@ class _GameScreenState extends State<GameScreen> {
                                   FilterChip(
                                     label: const Text('Preview'),
                                     selected: showHatPreview,
-                                    onSelected: (v) => setDialogState(() => showHatPreview = v),
+                                    onSelected: (v) => setDialogState(
+                                        () => showHatPreview = v),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 10),
                               Text(
                                 hatUnlocked
-                                    ? (hatEquipped ? 'Status: Equipped in game' : 'Status: Unlocked')
+                                    ? (hatEquipped
+                                        ? 'Status: Equipped in game'
+                                        : 'Status: Unlocked')
                                     : 'Status: Locked',
                                 style: const TextStyle(color: Colors.white70),
                               ),
                               if (!hatUnlocked && coins < selectedHat.cost)
                                 Text(
                                   'Need ${selectedHat.cost - coins} more coins',
-                                  style: const TextStyle(color: Color(0xFFFFAB91)),
+                                  style:
+                                      const TextStyle(color: Color(0xFFFFAB91)),
                                 ),
                               const SizedBox(height: 8),
                               const Text(
@@ -286,21 +302,26 @@ class _GameScreenState extends State<GameScreen> {
                                     ElevatedButton(
                                       onPressed: coins >= selectedHat.cost
                                           ? () async {
-                                              final ok = await game.unlockAccessory(selectedHat.id);
+                                              final ok =
+                                                  await game.unlockAccessory(
+                                                      selectedHat.id);
                                               if (!ok) return;
                                               await game.setAccessoryEquipped(
                                                 selectedHat.id,
                                                 world: GameWorld.world1,
-                                                monsterId: AccessoryCatalog.monsterMainId,
+                                                monsterId: AccessoryCatalog
+                                                    .monsterMainId,
                                               );
-                                              await game.loadCustomizationProgress();
+                                              await game
+                                                  .loadCustomizationProgress();
                                               setDialogState(() {
                                                 coins = game.totalCoins;
                                               });
                                             }
                                           : null,
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF43A047),
+                                        backgroundColor:
+                                            const Color(0xFF43A047),
                                         foregroundColor: Colors.white,
                                       ),
                                       child: const Text('Unlock & Apply'),
@@ -313,18 +334,22 @@ class _GameScreenState extends State<GameScreen> {
                                               await game.setAccessoryEquipped(
                                                 selectedHat.id,
                                                 world: GameWorld.world1,
-                                                monsterId: AccessoryCatalog.monsterMainId,
+                                                monsterId: AccessoryCatalog
+                                                    .monsterMainId,
                                               );
-                                              await game.loadCustomizationProgress();
+                                              await game
+                                                  .loadCustomizationProgress();
                                               setDialogState(() {
                                                 coins = game.totalCoins;
                                               });
                                             },
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF42A5F5),
+                                        backgroundColor:
+                                            const Color(0xFF42A5F5),
                                         foregroundColor: Colors.white,
                                       ),
-                                      child: Text(hatEquipped ? 'Applied' : 'Apply'),
+                                      child: Text(
+                                          hatEquipped ? 'Applied' : 'Apply'),
                                     ),
                                   if (hatUnlocked)
                                     OutlinedButton(
@@ -332,9 +357,11 @@ class _GameScreenState extends State<GameScreen> {
                                           ? () async {
                                               await game.clearEquippedAccessory(
                                                 world: GameWorld.world1,
-                                                monsterId: AccessoryCatalog.monsterMainId,
+                                                monsterId: AccessoryCatalog
+                                                    .monsterMainId,
                                               );
-                                              await game.loadCustomizationProgress();
+                                              await game
+                                                  .loadCustomizationProgress();
                                               setDialogState(() {
                                                 coins = game.totalCoins;
                                               });
@@ -391,7 +418,7 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'Tap good food, avoid bad items!',
+                    'Swipe food to monster, swipe bad items to bin!',
                     style: TextStyle(color: Colors.white70, fontSize: 20),
                   ),
                   const SizedBox(height: 32),
@@ -407,7 +434,8 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                     child: const Text(
                       'Start The Game',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -423,7 +451,8 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                     child: const Text(
                       'My Monster',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -439,7 +468,8 @@ class _GameScreenState extends State<GameScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xCC111111),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
               child: const Text(
                 'Menu',
@@ -481,7 +511,8 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                     child: const Text(
                       'Resume',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -497,7 +528,8 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                     child: const Text(
                       'Start New Game',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -522,7 +554,8 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                     child: const Text(
                       'My Monster',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
