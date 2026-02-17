@@ -20,10 +20,18 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static const int goodItemPoints = 8;
   static const int badItemPointsPenalty = 3;
   static const int missedGoodItemPointsPenalty = 4;
+  static const int world1HatCost = 60;
+  static const String _coinsKey = 'coins_total';
+  static const String _world1HatUnlockedKey = 'skin_world1_hat_unlocked';
+  static const String _world1HatEquippedKey = 'skin_world1_hat_equipped';
   int score = 0;
   int lives = maxLives;
   int bestScore = 0;
   int goodStreak = 0;
+  int totalCoins = 0;
+  int lastRunCoinsEarned = 0;
+  bool isWorld1HatUnlocked = false;
+  bool isWorld1HatEquipped = false;
   bool isGameOver = false;
   bool isStarted = false;
   bool isPaused = false;
@@ -93,6 +101,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     add(gameOverDisplay);
 
     await _loadBestScore();
+    await loadCustomizationProgress();
     await _initBackgroundMusic();
     scoreDisplay.updateHud(
       score,
@@ -104,6 +113,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       forceRepaint: true,
     );
     _layoutScene();
+    _applyMonsterAccessories();
   }
 
   @override
@@ -259,6 +269,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     isGameOver = true;
     isPaused = false;
     monster.showGameOver();
+    _awardRunCoins();
     if (score > bestScore) {
       bestScore = score;
       _saveBestScore();
@@ -327,6 +338,16 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     });
   }
 
+  void startNewGameFromMenu() {
+    if (!isStarted) return;
+    restartGame();
+    isPaused = false;
+    resumeEngine();
+    if (_musicReady) {
+      FlameAudio.bgm.resume();
+    }
+  }
+
   void _checkWorldProgression() {
     if (score >= world2ScoreThreshold &&
         currentWorld == GameWorld.world1) {
@@ -387,6 +408,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
         break;
     }
     await monster.loadWorldSkin(world);
+    _applyMonsterAccessories();
   }
 
   String _goalText() {
@@ -421,6 +443,58 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   Future<void> _loadBestScore() async {
     final prefs = await SharedPreferences.getInstance();
     bestScore = prefs.getInt('best_score') ?? 0;
+  }
+
+  Future<void> loadCustomizationProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    totalCoins = prefs.getInt(_coinsKey) ?? 0;
+    isWorld1HatUnlocked = prefs.getBool(_world1HatUnlockedKey) ?? false;
+    isWorld1HatEquipped = prefs.getBool(_world1HatEquippedKey) ?? false;
+    _applyMonsterAccessories();
+  }
+
+  Future<void> _saveCustomizationProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_coinsKey, totalCoins);
+    await prefs.setBool(_world1HatUnlockedKey, isWorld1HatUnlocked);
+    await prefs.setBool(_world1HatEquippedKey, isWorld1HatEquipped);
+  }
+
+  void _applyMonsterAccessories() {
+    if (!isLoaded || !monster.isLoaded) return;
+    final hasEquippedHat = isWorld1HatUnlocked && isWorld1HatEquipped;
+    monster.setWorld1HatEquipped(hasEquippedHat);
+  }
+
+  int _calculateCoinsFromScore(int finalScore) {
+    if (finalScore <= 0) return 0;
+    return max(1, finalScore ~/ 40);
+  }
+
+  void _awardRunCoins() {
+    final earned = _calculateCoinsFromScore(score);
+    lastRunCoinsEarned = earned;
+    if (earned <= 0) return;
+    totalCoins += earned;
+    _saveCustomizationProgress();
+  }
+
+  Future<bool> unlockWorld1Hat() async {
+    if (isWorld1HatUnlocked) return true;
+    if (totalCoins < world1HatCost) return false;
+    totalCoins -= world1HatCost;
+    isWorld1HatUnlocked = true;
+    isWorld1HatEquipped = true;
+    await _saveCustomizationProgress();
+    _applyMonsterAccessories();
+    return true;
+  }
+
+  Future<void> setWorld1HatEquipped(bool equipped) async {
+    if (equipped && !isWorld1HatUnlocked) return;
+    isWorld1HatEquipped = equipped;
+    await _saveCustomizationProgress();
+    _applyMonsterAccessories();
   }
 
   Future<void> _saveBestScore() async {

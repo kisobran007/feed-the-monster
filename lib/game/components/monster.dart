@@ -13,6 +13,8 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
       'sad': 'characters/world2/$_monsterId/sad.png',
     },
   };
+  static const String _world1HatPath =
+      'characters/world1/monster_main/accessories/hat.png';
 
   String currentState = 'idle';
   int _reactionId = 0;
@@ -27,6 +29,10 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
   late Sprite idleSprite;
   late Sprite happySprite;
   late Sprite sadSprite;
+  Sprite? _world1HatSprite;
+  SpriteComponent? _hatOverlay;
+  bool _hatOverlayAttached = false;
+  bool _world1HatEquipped = false;
   double _idleTime = 0;
   static const double _idleAmplitude = 0.035; // 3.5%
   static const double _idleSpeed = 2.5;
@@ -44,7 +50,10 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     reactionIndicator = MonsterReactionIndicator()
       ..anchor = Anchor.center;
     add(reactionIndicator);
+    await _setupAccessories();
     _layoutReactionIndicator();
+    _layoutAccessories();
+    _applyAccessoryVisibility();
   }
 
   Future<void> loadWorldSkin(GameWorld world) async {
@@ -52,6 +61,7 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     await _loadSkinSprites(world);
 
     showIdle();
+    _applyAccessoryVisibility();
   }
 
   Future<void> _loadSkinSprites(GameWorld world) async {
@@ -88,6 +98,7 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     reactionIndicator.showHappy();
     size = Vector2.all(_happySize);
     _layoutReactionIndicator();
+    _layoutAccessories();
     Future.delayed(_reactionDuration, () {
       if (_reactionId == currentId) showIdle();
     });
@@ -102,6 +113,7 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     reactionIndicator.showOops();
     size = Vector2.all(_sadSize);
     _layoutReactionIndicator();
+    _layoutAccessories();
     Future.delayed(_reactionDuration, () {
       if (_reactionId == currentId) showIdle();
     });
@@ -113,6 +125,7 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     reactionIndicator.hideIndicator();
     size = Vector2.all(_idleSize);
     _layoutReactionIndicator();
+    _layoutAccessories();
   }
 
   void showGameOver() {
@@ -123,6 +136,7 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     reactionIndicator.showGameOver();
     size = Vector2.all(_sadSize);
     _layoutReactionIndicator();
+    _layoutAccessories();
   }
 
   void showStreak() {
@@ -134,9 +148,15 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     reactionIndicator.showStreak();
     size = Vector2.all(_happySize + 12);
     _layoutReactionIndicator();
+    _layoutAccessories();
     Future.delayed(const Duration(milliseconds: 620), () {
       if (_reactionId == currentId) showIdle();
     });
+  }
+
+  void setWorld1HatEquipped(bool equipped) {
+    _world1HatEquipped = equipped;
+    _applyAccessoryVisibility();
   }
 
   void _playReactionSound(List<String> sounds) {
@@ -147,6 +167,43 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
 
   void _layoutReactionIndicator() {
     reactionIndicator.position = Vector2(size.x / 2, -54);
+  }
+
+  Future<void> _setupAccessories() async {
+    try {
+      _world1HatSprite = await game.loadSprite(_world1HatPath);
+      _hatOverlay = SpriteComponent(
+        sprite: _world1HatSprite,
+        anchor: Anchor.center,
+        priority: 12,
+      );
+      _hatOverlayAttached = false;
+    } catch (_) {
+      _world1HatSprite = null;
+      _hatOverlay = null;
+      _hatOverlayAttached = false;
+    }
+  }
+
+  void _layoutAccessories() {
+    if (_hatOverlay == null) return;
+    _hatOverlay!
+      ..position = Vector2(size.x * 0.5, size.y * 0.02)
+      ..size = Vector2(size.x * 0.74, size.y * 0.36);
+  }
+
+  void _applyAccessoryVisibility() {
+    if (_hatOverlay == null) return;
+    final shouldShowHat = currentWorld == GameWorld.world1 &&
+        _world1HatEquipped &&
+        _world1HatSprite != null;
+    if (shouldShowHat && !_hatOverlayAttached) {
+      add(_hatOverlay!);
+      _hatOverlayAttached = true;
+    } else if (!shouldShowHat && _hatOverlayAttached) {
+      _hatOverlay!.removeFromParent();
+      _hatOverlayAttached = false;
+    }
   }
 }
 
