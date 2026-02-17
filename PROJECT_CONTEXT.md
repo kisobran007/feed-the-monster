@@ -23,7 +23,7 @@ Keep it updated when gameplay rules, assets, or structure change.
 - Currency: `coins` (displayed in HUD as `Gold`).
 - Coins are earned from run score.
 - Current accessory implemented:
-  - hats for `level1/monster_main`.
+  - hats for `monster_main`.
 - Accessory flow:
   - Preview available in `My Monster` even when locked.
   - Unlock requires enough coins.
@@ -41,16 +41,15 @@ Keep it updated when gameplay rules, assets, or structure change.
 
 ## Asset Conventions
 
-- Character sprites are level + monster scoped.
+- Character sprites are monster-scoped (shared across levels).
 - Naming convention for monster states per level:
   - `idle.png`
   - `happy.png`
   - `sad.png`
 - Current paths:
-  - `assets/images/characters/level1/monster_main/`
-  - `assets/images/characters/level2/monster_main/`
+  - `assets/images/characters/monster_main/`
 - Accessories:
-  - `assets/images/characters/level1/monster_main/accessories/hat_party.png`
+  - `assets/images/characters/monster_main/accessories/hat_party.png`
 
 ## pubspec Asset Registration
 
@@ -58,10 +57,7 @@ Use explicit folders (important for web packaging):
 
 - `assets/images/backgrounds/`
 - `assets/images/items/`
-- `assets/images/characters/level1/monster_main/`
-- `assets/images/characters/level1/monster_main/accessories/`
-- `assets/images/characters/level2/monster_main/`
-- `assets/images/characters/level2/monster_main/accessories/`
+- `assets/images/characters/`
 - `assets/sounds/`
 
 ## Known Decisions

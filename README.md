@@ -65,20 +65,15 @@ assets/
       chili.png
       onion.png
     characters/
-      level1/
-        monster_main/
-          idle.png
-          happy.png
-          sad.png
-          accessories/
-            hat.png
-      level2/
-        monster_main/
-          idle.png
-          happy.png
-          sad.png
-          accessories/
-            PLACE_ACCESSORIES_HERE.txt
+      monster_main/
+        idle.png
+        happy.png
+        sad.png
+        accessories/
+          hat_party.png
+          hat_crown.png
+          hat_wizard.png
+          hat_baseball_cap.png
   sounds/
     ...
 ```

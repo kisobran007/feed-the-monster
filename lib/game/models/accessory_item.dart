@@ -39,7 +39,7 @@ class AccessoryCatalog {
       level: GameLevel.level1,
       slot: AccessorySlot.hat,
       cost: 60,
-      assetPath: 'characters/level1/monster_main/accessories/hat_party.png',
+      assetPath: 'characters/monster_main/accessories/hat_party.png',
     ),
     AccessoryItem(
       id: world1CrownHatId,
@@ -48,7 +48,7 @@ class AccessoryCatalog {
       level: GameLevel.level1,
       slot: AccessorySlot.hat,
       cost: 140,
-      assetPath: 'characters/level1/monster_main/accessories/hat_crown.png',
+      assetPath: 'characters/monster_main/accessories/hat_crown.png',
     ),
     AccessoryItem(
       id: world1WizardHatId,
@@ -57,7 +57,7 @@ class AccessoryCatalog {
       level: GameLevel.level1,
       slot: AccessorySlot.hat,
       cost: 120,
-      assetPath: 'characters/level1/monster_main/accessories/hat_wizard.png',
+      assetPath: 'characters/monster_main/accessories/hat_wizard.png',
     ),
     AccessoryItem(
       id: world1BaseballHatId,
@@ -66,8 +66,7 @@ class AccessoryCatalog {
       level: GameLevel.level1,
       slot: AccessorySlot.hat,
       cost: 90,
-      assetPath:
-          'characters/level1/monster_main/accessories/hat_baseball_cap.png',
+      assetPath: 'characters/monster_main/accessories/hat_baseball_cap.png',
     ),
   ];
 

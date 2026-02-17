@@ -14,6 +14,7 @@ class MonsterCharacter {
 
 class MonsterCatalog {
   static const String monsterMainId = 'monster_main';
+  static const String monsterBuddyId = 'monster_buddy';
   static const String defaultMonsterId = monsterMainId;
 
   static const List<MonsterCharacter> characters = [
@@ -21,6 +22,11 @@ class MonsterCatalog {
       id: monsterMainId,
       label: 'Main Monster',
       unlockCost: 0,
+    ),
+    MonsterCharacter(
+      id: monsterBuddyId,
+      label: 'Buddy Monster',
+      unlockCost: 250,
     ),
   ];
 

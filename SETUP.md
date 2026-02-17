@@ -27,10 +27,8 @@ assets/
     backgrounds/
     items/
     characters/
-      level1/monster_main/
-      level1/monster_main/accessories/
-      level2/monster_main/
-      level2/monster_main/accessories/
+      monster_main/
+      monster_main/accessories/
   sounds/
 ```
 
@@ -42,7 +40,7 @@ Required monster sprite names per level:
 
 Current accessory example:
 
-- `assets/images/characters/level1/monster_main/accessories/hat_party.png`
+- `assets/images/characters/monster_main/accessories/hat_party.png`
 
 ## 4. pubspec.yaml Assets
 
@@ -54,10 +52,7 @@ flutter:
   assets:
     - assets/images/backgrounds/
     - assets/images/items/
-    - assets/images/characters/level1/monster_main/
-    - assets/images/characters/level1/monster_main/accessories/
-    - assets/images/characters/level2/monster_main/
-    - assets/images/characters/level2/monster_main/accessories/
+    - assets/images/characters/
     - assets/sounds/
 ```
 

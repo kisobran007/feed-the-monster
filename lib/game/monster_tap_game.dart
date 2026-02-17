@@ -429,7 +429,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   Future<void> _applyLevelTheme(GameLevel level) async {
     background.sprite = await loadSprite(_backgroundByLevel[level]!);
-    await monster.loadLevelSkin(level);
     _applyMonsterAccessories();
   }
 

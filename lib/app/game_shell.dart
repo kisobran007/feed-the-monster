@@ -123,9 +123,8 @@ class _GameScreenState extends State<GameScreen> {
                     monsterId: selectedMonster.id,
                   )
                 : false;
-            final previewFolder = game.selectedLevel.assetFolder;
             final monsterPath =
-                'assets/images/characters/$previewFolder/${selectedMonster.id}/$previewState.png';
+                'assets/images/characters/${selectedMonster.id}/$previewState.png';
             final hatPath = selectedHat == null
                 ? null
                 : 'assets/images/${selectedHat.assetPath}';
