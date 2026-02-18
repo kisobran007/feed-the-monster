@@ -61,11 +61,11 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   };
   static final Map<GameLevel, List<String>> _goodItemsByLevel = {
     GameLevel.level1: ['apple', 'banana', 'carrot', 'broccoli'],
-    GameLevel.level2: ['good_soap', 'toothbrush'],
+    GameLevel.level2: ['good_soap', 'toothbrush', 'clean_sponge', 'shampoo'],
   };
   static final Map<GameLevel, List<String>> _badItemsByLevel = {
     GameLevel.level1: ['bad_donut', 'bad_fries', 'bad_pizza', 'bad_candy'],
-    GameLevel.level2: ['dirty_sock', 'germ'],
+    GameLevel.level2: ['dirty_sock', 'germ', 'dirty_tissue', 'slime_blob'],
   };
 
   List<LevelObjective> get _objectives => _objectiveEngine.objectives;
