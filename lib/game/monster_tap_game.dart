@@ -58,14 +58,18 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static final Map<GameLevel, String> _backgroundByLevel = {
     GameLevel.level1: 'backgrounds/bg_meadow.png',
     GameLevel.level2: 'backgrounds/bg_bathroom.png',
+    // Temporary fallback until level 3 background asset is ready.
+    GameLevel.level3: 'backgrounds/bg_meadow.png',
   };
   static final Map<GameLevel, List<String>> _goodItemsByLevel = {
     GameLevel.level1: ['apple', 'banana', 'carrot', 'broccoli'],
     GameLevel.level2: ['good_soap', 'toothbrush', 'clean_sponge', 'shampoo'],
+    GameLevel.level3: ['safe_helmet', 'safe_vest', 'safe_seatbelt'],
   };
   static final Map<GameLevel, List<String>> _badItemsByLevel = {
     GameLevel.level1: ['bad_donut', 'bad_fries', 'bad_pizza', 'bad_candy'],
     GameLevel.level2: ['dirty_sock', 'germ', 'dirty_tissue', 'slime_blob'],
+    GameLevel.level3: ['danger_fire', 'danger_electrical_cable'],
   };
 
   List<LevelObjective> get _objectives => _objectiveEngine.objectives;
@@ -130,14 +134,20 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     final isGood = random.nextDouble() < goodItemChance;
     final goodList = _goodItemsByLevel[selectedLevel]!;
     final badList = _badItemsByLevel[selectedLevel]!;
+    if (goodList.isEmpty && badList.isEmpty) {
+      return;
+    }
 
-    final itemType = isGood
+    final canSpawnGood = goodList.isNotEmpty;
+    final canSpawnBad = badList.isNotEmpty;
+    final spawnGood = canSpawnGood && (!canSpawnBad || isGood);
+    final itemType = spawnGood
         ? goodList[random.nextInt(goodList.length)]
         : badList[random.nextInt(badList.length)];
 
     final item = FallingItem(
       itemType: itemType,
-      isGood: isGood,
+      isGood: spawnGood,
       onDropped: handleItemDropped,
       onMissed: handleItemMissed,
       onDragMoved: handleItemDragMoved,
@@ -354,7 +364,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   Future<void> _applyLevelTheme(GameLevel level) async {
-    background.sprite = await loadSprite(_backgroundByLevel[level]!);
+    final backgroundPath =
+        _backgroundByLevel[level] ?? _backgroundByLevel[GameLevel.level1]!;
+    background.sprite = await loadSprite(backgroundPath);
     _applyMonsterAccessories();
   }
 

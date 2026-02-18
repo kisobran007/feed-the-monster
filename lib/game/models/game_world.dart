@@ -71,7 +71,16 @@ class GameLevel {
     ],
   );
 
-  static final List<GameLevel> values = [level1, level2];
+  static final GameLevel level3 = GameLevel(
+    levelNumber: 3,
+    objectives: [
+      LevelObjective(type: ObjectiveType.feedHealthy, target: 24),
+      LevelObjective(type: ObjectiveType.throwJunk, target: 18),
+      LevelObjective(type: ObjectiveType.maxMistakes, target: 2),
+    ],
+  );
+
+  static final List<GameLevel> values = [level1, level2, level3];
 
   static GameLevel? fromId(String? id) {
     if (id == null || id.isEmpty) return null;

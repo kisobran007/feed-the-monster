@@ -61,6 +61,11 @@ Future<void> showLevelsMenuDialog(
                       'Complete objectives in Level 1 to unlock.',
                       style: TextStyle(color: Color(0xFFFFAB91)),
                     ),
+                  if (!isUnlocked && selectedLevel == GameLevel.level3)
+                    const Text(
+                      'Complete objectives in Level 2 to unlock.',
+                      style: TextStyle(color: Color(0xFFFFAB91)),
+                    ),
                 ],
               ),
             ),
