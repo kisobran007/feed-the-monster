@@ -7,7 +7,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   late GameOverDisplay gameOverDisplay;
   late SpriteComponent background;
 
-  static const int maxLives = 4;
   static const double baseSpawnInterval = 1.8;
   static const double minSpawnInterval = 0.95;
   static const double spawnIntervalStep = 0.08;
@@ -31,7 +30,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static const String _world1HatEquippedKey = 'skin_world1_hat_equipped';
   static const String _legacyMonsterMainId = AccessoryCatalog.monsterMainId;
 
-  int lives = maxLives;
   int goodStreak = 0;
   int mistakes = 0;
   int totalCoins = 0;
@@ -248,7 +246,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       );
     } else {
       goodStreak = 0;
-      lives -= 1;
       _registerMistake();
       monster.showOops();
       _triggerScreenShake();
@@ -283,7 +280,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     _setTrashBinActive(false);
 
     goodStreak = 0;
-    lives -= 1;
     _registerMistake();
     monster.showOops();
     _triggerScreenShake();
@@ -326,10 +322,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       }
     } else {
       _refreshObjectiveHud();
-    }
-    if (lives <= 0) {
-      triggerGameOver();
-      return;
     }
     _checkLevelCompletion();
   }
@@ -393,7 +385,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   void restartGame() {
-    lives = maxLives;
     goodStreak = 0;
     mistakes = 0;
     isGameOver = false;
@@ -458,8 +449,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   void _refreshObjectiveHud({ObjectiveType? bumpedObjective}) {
     objectiveDisplay.updateHud(
       gold: totalCoins,
-      lives: lives,
-      maxLives: maxLives,
       level: selectedLevel,
       objectives: _objectives,
       bumpedObjective: bumpedObjective,

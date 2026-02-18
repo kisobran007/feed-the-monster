@@ -58,6 +58,7 @@ class GameLevel {
     objectives: [
       LevelObjective(type: ObjectiveType.feedHealthy, target: 15),
       LevelObjective(type: ObjectiveType.throwJunk, target: 10),
+      LevelObjective(type: ObjectiveType.maxMistakes, target: 3),
     ],
   );
 
