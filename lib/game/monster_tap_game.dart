@@ -58,18 +58,17 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static final Map<GameLevel, String> _backgroundByLevel = {
     GameLevel.level1: 'backgrounds/bg_meadow.png',
     GameLevel.level2: 'backgrounds/bg_bathroom.png',
-    // Temporary fallback until level 3 background asset is ready.
-    GameLevel.level3: 'backgrounds/bg_meadow.png',
+    GameLevel.level3: 'backgrounds/bg_safety_playground.png',
   };
   static final Map<GameLevel, List<String>> _goodItemsByLevel = {
     GameLevel.level1: ['apple', 'banana', 'carrot', 'broccoli'],
     GameLevel.level2: ['good_soap', 'toothbrush', 'clean_sponge', 'shampoo'],
-    GameLevel.level3: ['safe_helmet', 'safe_vest', 'safe_seatbelt'],
+    GameLevel.level3: ['safe_helmet', 'safe_vest', 'safe_seatbelt', 'safe_first_aid_kit'],
   };
   static final Map<GameLevel, List<String>> _badItemsByLevel = {
     GameLevel.level1: ['bad_donut', 'bad_fries', 'bad_pizza', 'bad_candy'],
     GameLevel.level2: ['dirty_sock', 'germ', 'dirty_tissue', 'slime_blob'],
-    GameLevel.level3: ['danger_fire', 'danger_electrical_cable'],
+    GameLevel.level3: ['danger_fire', 'danger_electrical_cable', 'danger_sharp_scissors', 'danger_jagged_glass'],
   };
 
   List<LevelObjective> get _objectives => _objectiveEngine.objectives;
