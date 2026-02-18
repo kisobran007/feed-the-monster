@@ -18,6 +18,8 @@ part 'game/models/monster_character.dart';
 part 'game/models/accessory_item.dart';
 part 'game/services/objective_engine.dart';
 part 'game/services/progress_repository.dart';
+part 'game/services/spawn_controller.dart';
+part 'game/services/audio_controller.dart';
 part 'game/components/monster.dart';
 part 'game/components/falling_item.dart';
 part 'game/effects/tap_burst.dart';

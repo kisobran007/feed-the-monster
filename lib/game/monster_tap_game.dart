@@ -8,14 +8,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   late SpriteComponent background;
   final ObjectiveEngine _objectiveEngine = ObjectiveEngine();
   final GameProgressRepository _progressRepository = GameProgressRepository();
+  final SpawnController _spawnController = SpawnController();
+  final AudioController _audioController = AudioController();
 
-  static const double baseSpawnInterval = 1.8;
-  static const double minSpawnInterval = 0.95;
-  static const double spawnIntervalStep = 0.08;
-  static const double difficultyTickSeconds = 15;
-  static const double baseFallSpeed = 85;
-  static const double maxFallSpeed = 170;
-  static const double fallSpeedStep = 8;
   static const double goodItemChance = 0.65;
   static const double _dropZoneScale = 0.72;
 
@@ -38,21 +33,11 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   bool _runRewardGranted = false;
 
   double survivalTime = 0;
-  double _difficultyTimer = 0;
-  double currentSpawnInterval = baseSpawnInterval;
-  double currentFallSpeed = baseFallSpeed;
-  double spawnTimer = 0;
   double _shakeTime = 0;
   static const double _shakeDuration = 0.14;
   static const double _shakeStrength = 9;
 
   final Random _fxRandom = Random();
-  final Random _musicRandom = Random();
-  final List<String> _musicTracks = const [
-    'bgm_playful_01.mp3',
-    'bgm_playful_02.mp3',
-  ];
-  bool _musicReady = false;
   bool _trashBinActive = false;
   late Sprite _trashBinIdleSprite;
   late Sprite _trashBinActiveSprite;
@@ -118,7 +103,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     _objectiveEngine.resetForLevel(selectedLevel);
     await _applySelectedMonster();
     await _applyLevelTheme(selectedLevel);
-    await _initBackgroundMusic();
+    await _audioController.init();
     _refreshObjectiveHud();
     _layoutScene();
     _applyMonsterAccessories();
@@ -135,17 +120,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (!isStarted || isGameOver || isPaused || isTransitioning) return;
 
     survivalTime += dt;
-    _difficultyTimer += dt;
-    if (_difficultyTimer >= difficultyTickSeconds) {
-      _difficultyTimer = 0;
-      currentSpawnInterval =
-          max(minSpawnInterval, currentSpawnInterval - spawnIntervalStep);
-      currentFallSpeed = min(maxFallSpeed, currentFallSpeed + fallSpeedStep);
-    }
-
-    spawnTimer += dt;
-    if (spawnTimer >= currentSpawnInterval) {
-      spawnTimer = 0;
+    if (_spawnController.tick(dt)) {
       spawnRandomItem();
     }
   }
@@ -166,7 +141,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       onDropped: handleItemDropped,
       onMissed: handleItemMissed,
       onDragMoved: handleItemDragMoved,
-      fallSpeed: currentFallSpeed,
+      fallSpeed: _spawnController.currentFallSpeed,
     )
       ..position = Vector2(random.nextDouble() * (size.x - 90) + 45, -50)
       ..anchor = Anchor.center;
@@ -302,9 +277,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     _refreshObjectiveHud();
     gameOverDisplay.showLevelCompleted(_objectives);
     _saveCustomizationProgress();
-    if (_musicReady) {
-      FlameAudio.bgm.pause();
-    }
+    _audioController.pause();
   }
 
   void triggerGameOver() {
@@ -315,9 +288,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     _awardRunCoins(completed: false);
     _refreshObjectiveHud();
     gameOverDisplay.showLevelFailed(_objectives);
-    if (_musicReady) {
-      FlameAudio.bgm.pause();
-    }
+    _audioController.pause();
   }
 
   void proceedAfterLevelCompleted() {
@@ -328,9 +299,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     restartGame();
     isPaused = false;
     resumeEngine();
-    if (_musicReady) {
-      FlameAudio.bgm.resume();
-    }
+    _audioController.resume();
   }
 
   void restartGame() {
@@ -339,11 +308,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     isPaused = false;
     isTransitioning = false;
     _runRewardGranted = false;
-    spawnTimer = 0;
     survivalTime = 0;
-    _difficultyTimer = 0;
-    currentSpawnInterval = baseSpawnInterval;
-    currentFallSpeed = baseFallSpeed;
+    _spawnController.reset();
     _objectiveEngine.resetForLevel(selectedLevel);
 
     children
@@ -363,7 +329,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     isPaused = false;
     resumeEngine();
     restartGame();
-    _playRandomBackgroundTrack();
+    _audioController.playRandomTrack();
     Future.delayed(const Duration(milliseconds: 1), () {
       if (!isGameOver) {
         _refreshObjectiveHud();
@@ -376,9 +342,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     restartGame();
     isPaused = false;
     resumeEngine();
-    if (_musicReady) {
-      FlameAudio.bgm.resume();
-    }
+    _audioController.resume();
   }
 
   void _unlockNextLevelIfNeeded() {
@@ -411,18 +375,14 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (!isStarted || isGameOver || isPaused) return;
     isPaused = true;
     pauseEngine();
-    if (_musicReady) {
-      FlameAudio.bgm.pause();
-    }
+    _audioController.pause();
   }
 
   void resumeGame() {
     if (!isStarted || isGameOver || !isPaused) return;
     isPaused = false;
     resumeEngine();
-    if (_musicReady) {
-      FlameAudio.bgm.resume();
-    }
+    _audioController.resume();
   }
 
   Future<void> loadCustomizationProgress() async {
@@ -653,20 +613,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     await monster.setMonsterId(selectedMonsterId);
   }
 
-  Future<void> _initBackgroundMusic() async {
-    FlameAudio.audioCache.prefix = 'assets/sounds/';
-    await FlameAudio.audioCache.loadAll(_musicTracks);
-    FlameAudio.bgm.initialize();
-    _musicReady = true;
-  }
-
-  void _playRandomBackgroundTrack() {
-    if (!_musicReady) return;
-    final track = _musicTracks[_musicRandom.nextInt(_musicTracks.length)];
-    FlameAudio.bgm.stop();
-    FlameAudio.bgm.play(track, volume: 0.28);
-  }
-
   @override
   void onTapDown(TapDownEvent event) {}
 
@@ -675,7 +621,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   @override
   void onRemove() {
-    FlameAudio.bgm.stop();
+    _audioController.stop();
     super.onRemove();
   }
 
