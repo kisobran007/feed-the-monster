@@ -1,18 +1,11 @@
 part of '../../main.dart';
+
 class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
-  static const String _monsterId = 'monster_main';
-  static const Map<GameWorld, Map<String, String>> _skinAssetPaths = {
-    GameWorld.world1: {
-      'idle': 'characters/world1/$_monsterId/idle.png',
-      'happy': 'characters/world1/$_monsterId/happy.png',
-      'sad': 'characters/world1/$_monsterId/sad.png',
-    },
-    GameWorld.world2: {
-      'idle': 'characters/world2/$_monsterId/idle.png',
-      'happy': 'characters/world2/$_monsterId/happy.png',
-      'sad': 'characters/world2/$_monsterId/sad.png',
-    },
-  };
+  String monsterId;
+
+  Monster({
+    required this.monsterId,
+  });
 
   String currentState = 'idle';
   int _reactionId = 0;
@@ -27,41 +20,47 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
   late Sprite idleSprite;
   late Sprite happySprite;
   late Sprite sadSprite;
+  Sprite? _hatSprite;
+  SpriteComponent? _hatOverlay;
+  bool _hatOverlayAttached = false;
+  String? _hatAssetPath;
+  int _hatLoadToken = 0;
   double _idleTime = 0;
   static const double _idleAmplitude = 0.035; // 3.5%
   static const double _idleSpeed = 2.5;
-  GameWorld currentWorld = GameWorld.world1;
 
   @override
   Future<void> onLoad() async {
     FlameAudio.audioCache.prefix = 'assets/sounds/';
     await FlameAudio.audioCache.loadAll([..._happySounds, ..._sadSounds]);
 
-    await _loadSkinSprites(currentWorld);
+    await _loadSkinSprites();
     sprite = idleSprite;
     size = Vector2.all(_idleSize);
 
-    reactionIndicator = MonsterReactionIndicator()
-      ..anchor = Anchor.center;
+    reactionIndicator = MonsterReactionIndicator()..anchor = Anchor.center;
     add(reactionIndicator);
     _layoutReactionIndicator();
+    _layoutAccessories();
+    _applyAccessoryVisibility();
   }
 
-  Future<void> loadWorldSkin(GameWorld world) async {
-    currentWorld = world;
-    await _loadSkinSprites(world);
-
+  Future<void> setMonsterId(String value) async {
+    if (monsterId == value) return;
+    monsterId = value;
+    await _loadSkinSprites();
     showIdle();
+    _applyAccessoryVisibility();
   }
 
-  Future<void> _loadSkinSprites(GameWorld world) async {
-    final skinPaths = _skinAssetPaths[world];
-    if (skinPaths == null) {
-      throw StateError('Missing skin path config for world: $world');
-    }
-    idleSprite = await game.loadSprite(skinPaths['idle']!);
-    happySprite = await game.loadSprite(skinPaths['happy']!);
-    sadSprite = await game.loadSprite(skinPaths['sad']!);
+  Future<void> _loadSkinSprites() async {
+    idleSprite = await game.loadSprite(_skinAssetPath('idle'));
+    happySprite = await game.loadSprite(_skinAssetPath('happy'));
+    sadSprite = await game.loadSprite(_skinAssetPath('sad'));
+  }
+
+  String _skinAssetPath(String state) {
+    return 'characters/$monsterId/$state.png';
   }
 
   @override
@@ -70,8 +69,7 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
 
     if (currentState == 'idle') {
       _idleTime += dt;
-      final scaleValue =
-          1 + _idleAmplitude * sin(_idleTime * _idleSpeed);
+      final scaleValue = 1 + _idleAmplitude * sin(_idleTime * _idleSpeed);
       scale = Vector2.all(scaleValue);
     } else {
       // reset scale when not idle
@@ -88,6 +86,7 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     reactionIndicator.showHappy();
     size = Vector2.all(_happySize);
     _layoutReactionIndicator();
+    _layoutAccessories();
     Future.delayed(_reactionDuration, () {
       if (_reactionId == currentId) showIdle();
     });
@@ -102,6 +101,7 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     reactionIndicator.showOops();
     size = Vector2.all(_sadSize);
     _layoutReactionIndicator();
+    _layoutAccessories();
     Future.delayed(_reactionDuration, () {
       if (_reactionId == currentId) showIdle();
     });
@@ -113,6 +113,7 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     reactionIndicator.hideIndicator();
     size = Vector2.all(_idleSize);
     _layoutReactionIndicator();
+    _layoutAccessories();
   }
 
   void showGameOver() {
@@ -123,6 +124,7 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     reactionIndicator.showGameOver();
     size = Vector2.all(_sadSize);
     _layoutReactionIndicator();
+    _layoutAccessories();
   }
 
   void showStreak() {
@@ -134,9 +136,16 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
     reactionIndicator.showStreak();
     size = Vector2.all(_happySize + 12);
     _layoutReactionIndicator();
+    _layoutAccessories();
     Future.delayed(const Duration(milliseconds: 620), () {
       if (_reactionId == currentId) showIdle();
     });
+  }
+
+  void setHatAccessoryAssetPath(String? assetPath) {
+    if (_hatAssetPath == assetPath) return;
+    _hatAssetPath = assetPath;
+    _loadHatSprite(assetPath);
   }
 
   void _playReactionSound(List<String> sounds) {
@@ -147,6 +156,56 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
 
   void _layoutReactionIndicator() {
     reactionIndicator.position = Vector2(size.x / 2, -54);
+  }
+
+  void _layoutAccessories() {
+    if (_hatOverlay == null) return;
+    _hatOverlay!
+      // Keep the hat anchored over the upper head area across state size changes.
+      ..position = Vector2(size.x * 0.5, size.y * 0.22)
+      ..size = Vector2(size.x * 0.68, size.y * 0.34);
+  }
+
+  void _applyAccessoryVisibility() {
+    final shouldShowHat = _hatOverlay != null && _hatSprite != null;
+    if (shouldShowHat && !_hatOverlayAttached) {
+      add(_hatOverlay!);
+      _hatOverlayAttached = true;
+    } else if (!shouldShowHat && _hatOverlayAttached) {
+      _hatOverlay!.removeFromParent();
+      _hatOverlayAttached = false;
+    }
+  }
+
+  Future<void> _loadHatSprite(String? assetPath) async {
+    final token = ++_hatLoadToken;
+    if (_hatOverlayAttached && _hatOverlay != null) {
+      _hatOverlay!.removeFromParent();
+    }
+    _hatOverlayAttached = false;
+    if (assetPath == null || assetPath.isEmpty) {
+      _hatSprite = null;
+      _hatOverlay = null;
+      _applyAccessoryVisibility();
+      return;
+    }
+    try {
+      final sprite = await game.loadSprite(assetPath);
+      if (token != _hatLoadToken) return;
+      _hatSprite = sprite;
+      _hatOverlay = SpriteComponent(
+        sprite: _hatSprite,
+        anchor: Anchor.center,
+        priority: 12,
+      );
+      _layoutAccessories();
+      _applyAccessoryVisibility();
+    } catch (_) {
+      if (token != _hatLoadToken) return;
+      _hatSprite = null;
+      _hatOverlay = null;
+      _applyAccessoryVisibility();
+    }
   }
 }
 
@@ -240,4 +299,3 @@ class MonsterReactionIndicator extends PositionComponent {
     );
   }
 }
-

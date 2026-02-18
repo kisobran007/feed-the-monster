@@ -21,9 +21,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/items/
-    - assets/images/characters/
-    - assets/images/characters/world1/monster_main/
-    - assets/images/characters/world2/monster_main/
     - assets/images/backgrounds/
+    - assets/images/items/
+    - assets/images/trash_bin/
+    - assets/images/characters/monster_main/
+    - assets/images/characters/monster_main/accessories/
+    - assets/images/characters/monster_buddy/
     - assets/sounds/

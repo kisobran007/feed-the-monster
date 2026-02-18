@@ -1,4 +1,5 @@
 part of '../main.dart';
+
 class GameApp extends StatelessWidget {
   const GameApp({super.key});
 
@@ -24,6 +25,7 @@ class _GameScreenState extends State<GameScreen> {
   late final MonsterTapGame game;
   bool hasStarted = false;
   bool isPaused = false;
+  bool isMenuOpen = false;
 
   @override
   void initState() {
@@ -36,18 +38,72 @@ class _GameScreenState extends State<GameScreen> {
     setState(() {
       hasStarted = true;
       isPaused = false;
+      isMenuOpen = false;
     });
   }
 
-  void _togglePause() {
+  void _openInGameMenu() {
     if (!hasStarted || game.isGameOver) return;
-    if (isPaused) {
-      game.resumeGame();
-    } else {
+    if (!isPaused) {
       game.pauseGame();
     }
     setState(() {
-      isPaused = !isPaused;
+      isPaused = true;
+      isMenuOpen = true;
+    });
+  }
+
+  void _resumeFromMenu() {
+    game.resumeGame();
+    setState(() {
+      isPaused = false;
+      isMenuOpen = false;
+    });
+  }
+
+  void _restartFromMenu() {
+    game.startNewGameFromMenu();
+    setState(() {
+      hasStarted = true;
+      isPaused = false;
+      isMenuOpen = false;
+    });
+  }
+
+  Future<void> _openMonsterMenu() async {
+    await showMonsterMenuDialog(context, game);
+  }
+
+  Future<void> _openLevelsMenu() async {
+    await showLevelsMenuDialog(
+      context,
+      game,
+      onLevelApplied: () {
+        if (!mounted) return;
+        setState(() {});
+      },
+    );
+  }
+
+  Future<void> _openMonsterMenuFromPause() async {
+    setState(() {
+      isMenuOpen = false;
+    });
+    await _openMonsterMenu();
+    if (!mounted || !hasStarted || !isPaused) return;
+    setState(() {
+      isMenuOpen = true;
+    });
+  }
+
+  Future<void> _openLevelsMenuFromPause() async {
+    setState(() {
+      isMenuOpen = false;
+    });
+    await _openLevelsMenu();
+    if (!mounted || !hasStarted || !isPaused) return;
+    setState(() {
+      isMenuOpen = true;
     });
   }
 
@@ -57,86 +113,35 @@ class _GameScreenState extends State<GameScreen> {
       children: [
         GameWidget(game: game),
         if (!hasStarted)
-          Positioned.fill(
-            child: Container(
-              color: const Color(0xDD111111),
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Monster Tap Game',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 42,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Tap good food, avoid bad items!',
-                    style: TextStyle(color: Colors.white70, fontSize: 20),
-                  ),
-                  const SizedBox(height: 32),
-                  ElevatedButton(
-                    onPressed: _startGame,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2ECC71),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 28,
-                        vertical: 16,
-                      ),
-                    ),
-                    child: const Text(
-                      'Start The Game',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          StartOverlay(
+            onStart: _startGame,
+            onOpenMonster: _openMonsterMenu,
+            onOpenLevels: _openLevelsMenu,
           ),
         if (hasStarted)
           Positioned(
             top: 18,
             right: 18,
             child: ElevatedButton(
-              onPressed: _togglePause,
+              onPressed: _openInGameMenu,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xCC111111),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
-              child: Text(
-                isPaused ? 'Resume' : 'Pause',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              child: const Text(
+                'Menu',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
           ),
-        if (isPaused)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Container(
-                color: const Color(0x66000000),
-                alignment: Alignment.center,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xDD111111),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Paused',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+        if (isPaused && isMenuOpen)
+          PauseOverlay(
+            onResume: _resumeFromMenu,
+            onRestart: _restartFromMenu,
+            onOpenMonster: _openMonsterMenuFromPause,
+            onOpenLevels: _openLevelsMenuFromPause,
           ),
       ],
     );

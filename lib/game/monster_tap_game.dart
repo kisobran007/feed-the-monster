@@ -1,109 +1,115 @@
 part of '../main.dart';
-// Main game class
+
 class MonsterTapGame extends FlameGame with TapCallbacks {
   late Monster monster;
-  late ScoreDisplay scoreDisplay;
+  late SpriteComponent trashBin;
+  late ObjectiveDisplay objectiveDisplay;
   late GameOverDisplay gameOverDisplay;
-  late RectangleComponent playAreaBackground;
-  late RectangleComponent monsterAreaBackground;
-  late RectangleComponent areaDivider;
   late SpriteComponent background;
-  static const int maxLives = 4;
-  static const double baseSpawnInterval = 1.8;
-  static const double minSpawnInterval = 0.95;
-  static const double spawnIntervalStep = 0.08;
-  static const double difficultyTickSeconds = 15;
-  static const double baseFallSpeed = 85;
-  static const double maxFallSpeed = 170;
-  static const double fallSpeedStep = 8;
+  final ObjectiveEngine _objectiveEngine = ObjectiveEngine();
+  final GameProgressRepository _progressRepository = GameProgressRepository();
+  final SpawnController _spawnController = SpawnController();
+  final AudioController _audioController = AudioController();
+
   static const double goodItemChance = 0.65;
-  static const int goodItemPoints = 8;
-  static const int badItemPointsPenalty = 3;
-  static const int missedGoodItemPointsPenalty = 4;
-  int score = 0;
-  int lives = maxLives;
-  int bestScore = 0;
-  int goodStreak = 0;
+  static const double _dropZoneScale = 0.72;
+
+  static const String _legacyMonsterMainId = AccessoryCatalog.monsterMainId;
+
+  int mistakes = 0;
+  int totalCoins = 0;
+  int lastRunCoinsEarned = 0;
+  int unlockedLevel = 1;
+  String selectedMonsterId = MonsterCatalog.defaultMonsterId;
+  final Set<String> unlockedMonsterIds = <String>{};
+  GameLevel selectedLevel = GameLevel.level1;
+  final Set<String> unlockedAccessoryIds = <String>{};
+  final Map<String, String> equippedAccessoryByTarget = <String, String>{};
+
   bool isGameOver = false;
   bool isStarted = false;
   bool isPaused = false;
   bool isTransitioning = false;
+  bool _runRewardGranted = false;
+
   double survivalTime = 0;
-  double _difficultyTimer = 0;
-  double currentSpawnInterval = baseSpawnInterval;
-  double currentFallSpeed = baseFallSpeed;
-  double spawnTimer = 0;
   double _shakeTime = 0;
   static const double _shakeDuration = 0.14;
   static const double _shakeStrength = 9;
+
   final Random _fxRandom = Random();
-  final Random _musicRandom = Random();
-  final List<String> _musicTracks = const [
-    'bgm_playful_01.mp3',
-    'bgm_playful_02.mp3',
-  ];
-  bool _musicReady = false;
+  bool _trashBinActive = false;
+  late Sprite _trashBinIdleSprite;
+  late Sprite _trashBinActiveSprite;
+
   static const double monsterAreaRatio = 0.28;
+  static const double _monsterXRatio = 0.22;
+  static const double _trashBinXRatio = 0.85;
 
   double get gameplayBottomY => size.y * (1 - monsterAreaRatio);
   double get monsterAreaTopY => gameplayBottomY;
-  double get monsterAreaHeight => size.y - monsterAreaTopY;  
+  double get monsterAreaHeight => size.y - monsterAreaTopY;
+  bool get hasNextUnlockedLevel {
+    final next = GameLevel.fromLevelNumber(selectedLevel.levelNumber + 1);
+    if (next == null) return false;
+    return unlockedLevel >= next.levelNumber;
+  }
 
-  GameWorld currentWorld = GameWorld.world1;
+  static final Map<GameLevel, String> _backgroundByLevel = {
+    GameLevel.level1: 'backgrounds/bg_meadow.png',
+    GameLevel.level2: 'backgrounds/bg_bathroom.png',
+    GameLevel.level3: 'backgrounds/bg_safety_playground.png',
+  };
+  static final Map<GameLevel, List<String>> _goodItemsByLevel = {
+    GameLevel.level1: ['apple', 'banana', 'carrot', 'broccoli'],
+    GameLevel.level2: ['good_soap', 'toothbrush', 'clean_sponge', 'shampoo'],
+    GameLevel.level3: ['safe_helmet', 'safe_vest', 'safe_seatbelt', 'safe_first_aid_kit'],
+  };
+  static final Map<GameLevel, List<String>> _badItemsByLevel = {
+    GameLevel.level1: ['bad_donut', 'bad_fries', 'bad_pizza', 'bad_candy'],
+    GameLevel.level2: ['dirty_sock', 'germ', 'dirty_tissue', 'slime_blob'],
+    GameLevel.level3: ['danger_fire', 'danger_electrical_cable', 'danger_sharp_scissors', 'danger_jagged_glass'],
+  };
 
-  static const int world2ScoreThreshold = 300;
-
-  List<String> world1Good = ['apple', 'banana', 'cookie', 'strawberry'];
-  List<String> world1Bad = ['bad_shoe', 'bad_rock', 'bad_soap', 'bad_brick'];
-
-  List<String> world2Good = ['cupcake', 'lollipop'];
-  List<String> world2Bad = ['chili', 'onion'];
+  List<LevelObjective> get _objectives => _objectiveEngine.objectives;
 
   @override
   Future<void> onLoad() async {
     final bgSprite = await loadSprite('backgrounds/bg_meadow.png');
-    background = SpriteComponent(
-      sprite: bgSprite,
-      priority: -100,
-    );
+    background = SpriteComponent(sprite: bgSprite, priority: -100);
     add(background);
 
-    // Add monster in dedicated bottom area
-    monster = Monster()
-      ..position = Vector2(size.x / 2, monsterAreaTopY + (monsterAreaHeight * 0.6))
+    monster = Monster(monsterId: selectedMonsterId)
+      ..position = Vector2(
+        size.x * _monsterXRatio,
+        monsterAreaTopY + (monsterAreaHeight * 0.6),
+      )
       ..anchor = Anchor.center;
     add(monster);
 
-    // Add score display
-    scoreDisplay = ScoreDisplay()..position = Vector2(20, 24);
-    add(scoreDisplay);
-    scoreDisplay.updateHud(
-      score,
-      lives,
-      maxLives,
-      bestScore,
-      currentWorld,
-      _goalText(),
-      forceRepaint: true,
+    _trashBinIdleSprite = await loadSprite('trash_bin/trash_bin_idle.png');
+    _trashBinActiveSprite = await loadSprite('trash_bin/trash_bin_active.png');
+    trashBin = SpriteComponent(
+      sprite: _trashBinIdleSprite,
+      anchor: Anchor.center,
+      priority: 5,
     );
+    add(trashBin);
 
-    // Add game over display (hidden initially)
-    gameOverDisplay = GameOverDisplay()
-      ..anchor = Anchor.center;
+    objectiveDisplay = ObjectiveDisplay()..position = Vector2(20, 24);
+    add(objectiveDisplay);
+
+    gameOverDisplay = GameOverDisplay()..anchor = Anchor.topLeft;
     add(gameOverDisplay);
 
-    await _loadBestScore();
-    await _initBackgroundMusic();
-    scoreDisplay.updateHud(
-      score,
-      lives,
-      maxLives,
-      bestScore,
-      currentWorld,
-      _goalText(),
-      forceRepaint: true,
-    );
+    await loadCustomizationProgress();
+    _objectiveEngine.resetForLevel(selectedLevel);
+    await _applySelectedMonster();
+    await _applyLevelTheme(selectedLevel);
+    await _audioController.init();
+    _refreshObjectiveHud();
     _layoutScene();
+    _applyMonsterAccessories();
   }
 
   @override
@@ -113,21 +119,11 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (_shakeTime > 0) {
       _shakeTime = max(0, _shakeTime - dt);
     }
-    
+
     if (!isStarted || isGameOver || isPaused || isTransitioning) return;
 
     survivalTime += dt;
-    _difficultyTimer += dt;
-    if (_difficultyTimer >= difficultyTickSeconds) {
-      _difficultyTimer = 0;
-      currentSpawnInterval = max(minSpawnInterval, currentSpawnInterval - spawnIntervalStep);
-      currentFallSpeed = min(maxFallSpeed, currentFallSpeed + fallSpeedStep);
-    }
-
-    // Spawn items periodically
-    spawnTimer += dt;
-    if (spawnTimer >= currentSpawnInterval) {
-      spawnTimer = 0;
+    if (_spawnController.tick(dt)) {
       spawnRandomItem();
     }
   }
@@ -135,43 +131,49 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   void spawnRandomItem() {
     final random = Random();
     final isGood = random.nextDouble() < goodItemChance;
+    final goodList = _goodItemsByLevel[selectedLevel]!;
+    final badList = _badItemsByLevel[selectedLevel]!;
+    if (goodList.isEmpty && badList.isEmpty) {
+      return;
+    }
 
-    final goodList =
-        currentWorld == GameWorld.world1 ? world1Good : world2Good;
-
-    final badList =
-        currentWorld == GameWorld.world1 ? world1Bad : world2Bad;
-
-    final itemType = isGood
+    final canSpawnGood = goodList.isNotEmpty;
+    final canSpawnBad = badList.isNotEmpty;
+    final spawnGood = canSpawnGood && (!canSpawnBad || isGood);
+    final itemType = spawnGood
         ? goodList[random.nextInt(goodList.length)]
         : badList[random.nextInt(badList.length)];
 
     final item = FallingItem(
       itemType: itemType,
-      isGood: isGood,
-      onTapped: handleItemTap,
+      isGood: spawnGood,
+      onDropped: handleItemDropped,
       onMissed: handleItemMissed,
-      fallSpeed: currentFallSpeed,
+      onDragMoved: handleItemDragMoved,
+      fallSpeed: _spawnController.currentFallSpeed,
     )
       ..position = Vector2(random.nextDouble() * (size.x - 90) + 45, -50)
       ..anchor = Anchor.center;
-
     add(item);
   }
 
-
-  void handleItemTap(FallingItem item) {
+  void handleItemDropped(FallingItem item, Vector2 dropPosition) {
     if (isGameOver || isTransitioning) return;
-    final tapPosition = item.position.clone();
 
-    if (item.isGood) {
-      goodStreak += 1;
-      score += goodItemPoints;
-      if (goodStreak >= 3) {
+    _setTrashBinActive(false);
+    final onMonster =
+        _monsterDropRect().contains(Offset(dropPosition.x, dropPosition.y));
+    final onTrashBin =
+        _trashBinDropRect().contains(Offset(dropPosition.x, dropPosition.y));
+
+    if (item.isGood && onMonster) {
+      var bumped = _objectiveEngine.registerGoodFeed();
+      bumped ??= _objectiveEngine.syncComboProgress();
+      if (_objectiveEngine.goodStreak >= 3) {
         monster.showStreak();
         add(
           TapBurst(
-            position: tapPosition,
+            position: dropPosition,
             baseColor: const Color(0xFFFFD54F),
             particleCount: 24,
             particleSize: 10,
@@ -189,9 +191,11 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       } else {
         monster.showHappy();
       }
+      _refreshObjectiveHud(bumpedObjective: bumped);
+      _checkLevelCompletion();
       add(
         TapBurst(
-          position: tapPosition,
+          position: dropPosition,
           baseColor: const Color(0xFFFFD54F),
           particleCount: 16,
           particleSize: 8,
@@ -199,15 +203,29 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
           spreadSpeed: 180,
         ),
       );
+    } else if (!item.isGood && onTrashBin) {
+      var bumped = _objectiveEngine.registerJunkThrow();
+      bumped ??= _objectiveEngine.syncComboProgress();
+      monster.showHappy();
+      _refreshObjectiveHud(bumpedObjective: bumped);
+      _checkLevelCompletion();
+      add(
+        TapBurst(
+          position: dropPosition,
+          baseColor: const Color(0xFF66BB6A),
+          particleCount: 14,
+          particleSize: 8,
+          lifetime: 0.32,
+          spreadSpeed: 170,
+        ),
+      );
     } else {
-      goodStreak = 0;
-      score -= badItemPointsPenalty;
-      lives -= 1;
+      _registerMistake();
       monster.showOops();
       _triggerScreenShake();
       add(
         TapBurst(
-          position: tapPosition,
+          position: dropPosition,
           baseColor: const Color(0xFFE53935),
           particleCount: 14,
           particleSize: 9,
@@ -215,94 +233,104 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
           spreadSpeed: 170,
         ),
       );
-      if (lives <= 0) {
-        triggerGameOver();
-      }
     }
-    _checkWorldProgression();
-    scoreDisplay.updateHud(
-      score,
-      lives,
-      maxLives,
-      bestScore,
-      currentWorld,
-      _goalText(),
-    );
+
     item.removeFromParent();
+  }
+
+  void handleItemDragMoved(FallingItem item, Vector2 position) {
+    if (isGameOver || isTransitioning) return;
+    if (!item.isGood) {
+      final overTrashBin =
+          _trashBinDropRect().contains(Offset(position.x, position.y));
+      _setTrashBinActive(overTrashBin);
+      return;
+    }
+    _setTrashBinActive(false);
   }
 
   void handleItemMissed(FallingItem item) {
     if (isGameOver || isTransitioning) return;
-    if (!item.isGood) return;
+    _setTrashBinActive(false);
 
-    // Missing healthy food costs one life and a small score penalty.
-    goodStreak = 0;
-    lives -= 1;
-    score -= missedGoodItemPointsPenalty;
+    _registerMistake();
     monster.showOops();
-    _checkWorldProgression();
-    if (lives <= 0) {
+    _triggerScreenShake();
+  }
+
+  void _registerMistake() {
+    final bumped = _objectiveEngine.registerMistake();
+    mistakes = _objectiveEngine.mistakes;
+    _refreshObjectiveHud(bumpedObjective: bumped);
+    if (_objectiveEngine.isMistakeLimitExceeded) {
       triggerGameOver();
       return;
     }
-    scoreDisplay.updateHud(
-      score,
-      lives,
-      maxLives,
-      bestScore,
-      currentWorld,
-      _goalText(),
-    );
+    _checkLevelCompletion();
+  }
+
+  void _checkLevelCompletion() {
+    if (isGameOver || isTransitioning) return;
+    if (_objectiveEngine.isLevelCompleted) {
+      completeLevel();
+    }
+  }
+
+  void completeLevel() {
+    if (isGameOver || isTransitioning) return;
+    isGameOver = true;
+    isPaused = false;
+    monster.showHappy();
+    _unlockNextLevelIfNeeded();
+    _awardRunCoins(completed: true);
+    _refreshObjectiveHud();
+    gameOverDisplay.showLevelCompleted(_objectives);
+    _saveCustomizationProgress();
+    _audioController.pause();
   }
 
   void triggerGameOver() {
+    if (isGameOver) return;
     isGameOver = true;
     isPaused = false;
     monster.showGameOver();
-    if (score > bestScore) {
-      bestScore = score;
-      _saveBestScore();
+    _awardRunCoins(completed: false);
+    _refreshObjectiveHud();
+    gameOverDisplay.showLevelFailed(_objectives);
+    _audioController.pause();
+  }
+
+  void proceedAfterLevelCompleted() {
+    final nextLevel = GameLevel.fromLevelNumber(selectedLevel.levelNumber + 1);
+    if (nextLevel != null && isLevelUnlocked(nextLevel)) {
+      selectedLevel = nextLevel;
     }
-    scoreDisplay.updateHud(
-      score,
-      lives,
-      maxLives,
-      bestScore,
-      currentWorld,
-      _goalText(),
-    );
-    gameOverDisplay.show(score, bestScore, survivalTime);
+    restartGame();
+    isPaused = false;
+    resumeEngine();
+    _audioController.resume();
   }
 
   void restartGame() {
-    score = 0;
-    lives = maxLives;
-    goodStreak = 0;
+    mistakes = 0;
     isGameOver = false;
     isPaused = false;
     isTransitioning = false;
-    spawnTimer = 0;
+    _runRewardGranted = false;
     survivalTime = 0;
-    _difficultyTimer = 0;
-    currentSpawnInterval = baseSpawnInterval;
-    currentFallSpeed = baseFallSpeed;
-    currentWorld = GameWorld.world1;
-    
-    // Remove all falling items
-    children.whereType<FallingItem>().toList().forEach((item) => item.removeFromParent());
-    
+    _spawnController.reset();
+    _objectiveEngine.resetForLevel(selectedLevel);
+
+    children
+        .whereType<FallingItem>()
+        .toList()
+        .forEach((item) => item.removeFromParent());
+
     gameOverDisplay.hide();
+    _setTrashBinActive(false);
     monster.showIdle();
-    scoreDisplay.updateHud(
-      score,
-      lives,
-      maxLives,
-      bestScore,
-      currentWorld,
-      _goalText(),
-      forceRepaint: true,
-    );
-    _applyWorldTheme(currentWorld);
+    _refreshObjectiveHud();
+    _applyLevelTheme(selectedLevel);
   }
 
   void startGame() {
@@ -310,90 +338,44 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     isPaused = false;
     resumeEngine();
     restartGame();
-    _playRandomBackgroundTrack();
-    // Force one extra HUD repaint right after start to avoid first-frame glyph fallback glitches.
+    _audioController.playRandomTrack();
     Future.delayed(const Duration(milliseconds: 1), () {
       if (!isGameOver) {
-        scoreDisplay.updateHud(
-          score,
-          lives,
-          maxLives,
-          bestScore,
-          currentWorld,
-          _goalText(),
-          forceRepaint: true,
-        );
+        _refreshObjectiveHud();
       }
     });
   }
 
-  void _checkWorldProgression() {
-    if (score >= world2ScoreThreshold &&
-        currentWorld == GameWorld.world1) {
-      _transitionToWorld(GameWorld.world2);
-    }
+  void startNewGameFromMenu() {
+    if (!isStarted) return;
+    restartGame();
+    isPaused = false;
+    resumeEngine();
+    _audioController.resume();
   }
 
-  void _transitionToWorld(GameWorld newWorld) {
-    if (isTransitioning) return;
-    isTransitioning = true;
+  void _unlockNextLevelIfNeeded() {
+    final nextLevelNumber = selectedLevel.levelNumber + 1;
+    final nextLevel = GameLevel.fromLevelNumber(nextLevelNumber);
+    if (nextLevel == null) return;
+    if (unlockedLevel >= nextLevelNumber) return;
+    unlockedLevel = nextLevelNumber;
+  }
 
-    // Celebration moment
-    monster.showStreak();
+  Future<void> _applyLevelTheme(GameLevel level) async {
+    final backgroundPath =
+        _backgroundByLevel[level] ?? _backgroundByLevel[GameLevel.level1]!;
+    background.sprite = await loadSprite(backgroundPath);
+    _applyMonsterAccessories();
+  }
 
-    add(
-      TapBurst(
-        position: Vector2(size.x / 2, size.y / 2),
-        baseColor: const Color(0xFFFF80AB),
-        particleCount: 40,
-        particleSize: 14,
-        lifetime: 0.8,
-        spreadSpeed: 250,
-      ),
+  void _refreshObjectiveHud({ObjectiveType? bumpedObjective}) {
+    objectiveDisplay.updateHud(
+      gold: totalCoins,
+      level: selectedLevel,
+      objectives: _objectives,
+      bumpedObjective: bumpedObjective,
     );
-
-    add(
-      WorldTransitionOverlay(
-        nextWorld: newWorld,
-        onSwitchWorld: () {
-          currentWorld = newWorld;
-          _applyWorldTheme(newWorld);
-          scoreDisplay.updateHud(
-            score,
-            lives,
-            maxLives,
-            bestScore,
-            currentWorld,
-            _goalText(),
-          );
-        },
-        onCompleted: () {
-          isTransitioning = false;
-        },
-      ),
-    );
-  }
-
-  Future<void> _applyWorldTheme(GameWorld world) async {
-    switch (world) {
-      case GameWorld.world1:
-        background.sprite =
-            await loadSprite('backgrounds/bg_meadow.png');
-        break;
-
-      case GameWorld.world2:
-        background.sprite =
-            await loadSprite('backgrounds/bg_world2.png');
-        break;
-    }
-    await monster.loadWorldSkin(world);
-  }
-
-  String _goalText() {
-    if (currentWorld == GameWorld.world1) {
-      return 'Goal: reach $world2ScoreThreshold points to unlock World 2';
-    }
-    return 'Goal: survive and beat best score';
   }
 
   void _triggerScreenShake() {
@@ -404,55 +386,253 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (!isStarted || isGameOver || isPaused) return;
     isPaused = true;
     pauseEngine();
-    if (_musicReady) {
-      FlameAudio.bgm.pause();
-    }
+    _audioController.pause();
   }
 
   void resumeGame() {
     if (!isStarted || isGameOver || !isPaused) return;
     isPaused = false;
     resumeEngine();
-    if (_musicReady) {
-      FlameAudio.bgm.resume();
+    _audioController.resume();
+  }
+
+  Future<void> loadCustomizationProgress() async {
+    final data = await _progressRepository.load();
+    totalCoins = data.totalCoins;
+    unlockedLevel = data.unlockedLevel;
+    selectedLevel = data.selectedLevel;
+    selectedMonsterId = data.selectedMonsterId;
+    unlockedMonsterIds
+      ..clear()
+      ..addAll(data.unlockedMonsterIds);
+    unlockedAccessoryIds
+      ..clear()
+      ..addAll(data.unlockedAccessoryIds);
+    equippedAccessoryByTarget
+      ..clear()
+      ..addAll(data.equippedAccessoryByTarget);
+
+    if (isLoaded) {
+      _objectiveEngine.resetForLevel(selectedLevel);
+      await _applySelectedMonster();
+      await _applyLevelTheme(selectedLevel);
+      _applyMonsterAccessories();
+      _refreshObjectiveHud();
     }
   }
 
-  Future<void> _loadBestScore() async {
-    final prefs = await SharedPreferences.getInstance();
-    bestScore = prefs.getInt('best_score') ?? 0;
+  Future<void> _saveCustomizationProgress() async {
+    await _progressRepository.save(
+      totalCoins: totalCoins,
+      selectedLevel: selectedLevel,
+      unlockedLevel: unlockedLevel,
+      selectedMonsterId: selectedMonsterId,
+      unlockedMonsterIds: unlockedMonsterIds,
+      unlockedAccessoryIds: unlockedAccessoryIds,
+      equippedAccessoryByTarget: equippedAccessoryByTarget,
+      world1HatUnlocked: isWorld1HatUnlocked,
+      world1HatEquipped: isWorld1HatEquipped,
+    );
   }
 
-  Future<void> _saveBestScore() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('best_score', bestScore);
+  void _applyMonsterAccessories() {
+    if (!isLoaded || !monster.isLoaded) return;
+    final equippedIdForLevel = equippedAccessoryIdForTarget(
+      level: selectedLevel,
+      monsterId: selectedMonsterId,
+    );
+    final equippedId = equippedIdForLevel ??
+        equippedAccessoryIdForTarget(
+          level: GameLevel.level1,
+          monsterId: selectedMonsterId,
+        );
+    final equippedItem =
+        equippedId == null ? null : AccessoryCatalog.byId(equippedId);
+    final hatItem =
+        equippedItem?.slot == AccessorySlot.hat ? equippedItem : null;
+    monster.setHatAccessoryAssetPath(hatItem?.assetPath);
   }
 
-  Future<void> _initBackgroundMusic() async {
-    FlameAudio.audioCache.prefix = 'assets/sounds/';
-    await FlameAudio.audioCache.loadAll(_musicTracks);
-    FlameAudio.bgm.initialize();
-    _musicReady = true;
+  int _calculateCoinsForRun({required bool completed}) {
+    final completedObjectives = _objectiveEngine.completedObjectivesCount;
+    if (completed) {
+      return 12 + (selectedLevel.levelNumber * 4) + (completedObjectives * 3);
+    }
+    return max(1, completedObjectives * 2);
   }
 
-  void _playRandomBackgroundTrack() {
-    if (!_musicReady) return;
-    final track = _musicTracks[_musicRandom.nextInt(_musicTracks.length)];
-    FlameAudio.bgm.stop();
-    FlameAudio.bgm.play(track, volume: 0.28);
+  void _awardRunCoins({required bool completed}) {
+    if (_runRewardGranted) return;
+    _runRewardGranted = true;
+    final earned = _calculateCoinsForRun(completed: completed);
+    lastRunCoinsEarned = earned;
+    if (earned <= 0) return;
+    totalCoins += earned;
+    _saveCustomizationProgress();
+  }
+
+  Future<bool> unlockWorld1Hat() async {
+    final ok = await unlockAccessory(AccessoryCatalog.world1PartyHatId);
+    if (!ok) return false;
+    await setAccessoryEquipped(
+      AccessoryCatalog.world1PartyHatId,
+      level: GameLevel.level1,
+      monsterId: _legacyMonsterMainId,
+    );
+    return true;
+  }
+
+  Future<void> setWorld1HatEquipped(bool equipped) async {
+    if (equipped) {
+      if (!isWorld1HatUnlocked) return;
+      await setAccessoryEquipped(
+        AccessoryCatalog.world1PartyHatId,
+        level: GameLevel.level1,
+        monsterId: _legacyMonsterMainId,
+      );
+      return;
+    }
+    await clearEquippedAccessory(
+      level: GameLevel.level1,
+      monsterId: _legacyMonsterMainId,
+    );
+  }
+
+  List<AccessoryItem> accessoriesFor({
+    required GameLevel level,
+    required String monsterId,
+  }) {
+    return AccessoryCatalog.forMonster(level: level, monsterId: monsterId);
+  }
+
+  bool isAccessoryUnlocked(String accessoryId) {
+    return unlockedAccessoryIds.contains(accessoryId);
+  }
+
+  String? equippedAccessoryIdForTarget({
+    required GameLevel level,
+    required String monsterId,
+  }) {
+    return equippedAccessoryByTarget[_targetKey(level, monsterId)];
+  }
+
+  bool isAccessoryEquipped({
+    required String accessoryId,
+    required GameLevel level,
+    required String monsterId,
+  }) {
+    return equippedAccessoryIdForTarget(level: level, monsterId: monsterId) ==
+        accessoryId;
+  }
+
+  Future<bool> unlockAccessory(String accessoryId) async {
+    if (isAccessoryUnlocked(accessoryId)) return true;
+    final item = AccessoryCatalog.byId(accessoryId);
+    if (item == null) return false;
+    if (totalCoins < item.cost) return false;
+    totalCoins -= item.cost;
+    unlockedAccessoryIds.add(accessoryId);
+    await _saveCustomizationProgress();
+    _refreshObjectiveHud();
+    return true;
+  }
+
+  Future<void> setAccessoryEquipped(
+    String accessoryId, {
+    required GameLevel level,
+    required String monsterId,
+  }) async {
+    if (!isAccessoryUnlocked(accessoryId)) return;
+    equippedAccessoryByTarget[_targetKey(level, monsterId)] = accessoryId;
+    await _saveCustomizationProgress();
+    _applyMonsterAccessories();
+  }
+
+  Future<void> clearEquippedAccessory({
+    required GameLevel level,
+    required String monsterId,
+  }) async {
+    equippedAccessoryByTarget.remove(_targetKey(level, monsterId));
+    await _saveCustomizationProgress();
+    _applyMonsterAccessories();
+  }
+
+  bool get isWorld1HatUnlocked =>
+      isAccessoryUnlocked(AccessoryCatalog.world1PartyHatId);
+  bool get isWorld1HatEquipped => isAccessoryEquipped(
+        accessoryId: AccessoryCatalog.world1PartyHatId,
+        level: GameLevel.level1,
+        monsterId: _legacyMonsterMainId,
+      );
+
+  List<GameLevel> get availableLevels => GameLevel.values;
+
+  bool isLevelUnlocked(GameLevel level) {
+    return level.levelNumber <= unlockedLevel;
+  }
+
+  Future<void> selectLevel(GameLevel level) async {
+    if (!isLevelUnlocked(level)) return;
+    selectedLevel = level;
+    await _saveCustomizationProgress();
+    if (isStarted) {
+      restartGame();
+    } else if (isLoaded) {
+      _objectiveEngine.resetForLevel(selectedLevel);
+      await _applyLevelTheme(selectedLevel);
+      _refreshObjectiveHud();
+    }
+  }
+
+  List<MonsterCharacter> get availableMonsters => MonsterCatalog.characters;
+
+  bool isMonsterUnlocked(String monsterId) {
+    return unlockedMonsterIds.contains(monsterId);
+  }
+
+  bool isMonsterSelected(String monsterId) {
+    return selectedMonsterId == monsterId;
+  }
+
+  Future<bool> unlockMonster(String monsterId) async {
+    if (isMonsterUnlocked(monsterId)) return true;
+    final character = MonsterCatalog.byId(monsterId);
+    if (character == null) return false;
+    if (totalCoins < character.unlockCost) return false;
+    totalCoins -= character.unlockCost;
+    unlockedMonsterIds.add(monsterId);
+    await _saveCustomizationProgress();
+    _refreshObjectiveHud();
+    return true;
+  }
+
+  Future<void> selectMonster(String monsterId) async {
+    if (!isMonsterUnlocked(monsterId)) return;
+    if (selectedMonsterId == monsterId) return;
+    selectedMonsterId = monsterId;
+    await _saveCustomizationProgress();
+    await _applySelectedMonster();
+    _applyMonsterAccessories();
+  }
+
+  String _targetKey(GameLevel level, String monsterId) {
+    return '${level.id}:$monsterId';
+  }
+
+  Future<void> _applySelectedMonster() async {
+    if (!isLoaded || !monster.isLoaded) return;
+    await monster.setMonsterId(selectedMonsterId);
   }
 
   @override
-  void onTapDown(TapDownEvent event) {
-    // Tap handled by GameOverDisplay
-  }
+  void onTapDown(TapDownEvent event) {}
 
   @override
   Color backgroundColor() => const Color(0xFF2A2A2A);
 
   @override
   void onRemove() {
-    FlameAudio.bgm.stop();
+    _audioController.stop();
     super.onRemove();
   }
 
@@ -479,19 +659,46 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   void _layoutScene() {
-    final bottomY = gameplayBottomY;
-    final overlaySize = Vector2(size.x * 0.92, min(520.0, bottomY * 0.95));
-
     background
       ..position = Vector2.zero()
       ..size = size;
 
-    monster.position = Vector2(size.x / 2, monsterAreaTopY + (monsterAreaHeight * 0.6));
-    scoreDisplay.position = Vector2(20, 24);
+    monster.position = Vector2(
+      size.x * _monsterXRatio,
+      monsterAreaTopY + (monsterAreaHeight * 0.6),
+    );
+    trashBin
+      ..position = Vector2(
+        size.x * _trashBinXRatio,
+        monsterAreaTopY + (monsterAreaHeight * 0.62),
+      )
+      ..size = Vector2(size.x * 0.19, size.x * 0.19);
+    objectiveDisplay.position = Vector2(20, 24);
 
     gameOverDisplay
-      ..position = Vector2(size.x / 2, bottomY / 2)
-      ..setDisplaySize(overlaySize);
+      ..position = Vector2.zero()
+      ..setDisplaySize(size);
+  }
+
+  Rect _monsterDropRect() {
+    return Rect.fromCenter(
+      center: Offset(monster.position.x, monster.position.y),
+      width: monster.size.x * _dropZoneScale,
+      height: monster.size.y * _dropZoneScale,
+    );
+  }
+
+  Rect _trashBinDropRect() {
+    return Rect.fromCenter(
+      center: Offset(trashBin.position.x, trashBin.position.y),
+      width: trashBin.size.x * _dropZoneScale,
+      height: trashBin.size.y * _dropZoneScale,
+    );
+  }
+
+  void _setTrashBinActive(bool active) {
+    if (_trashBinActive == active) return;
+    _trashBinActive = active;
+    trashBin.sprite = active ? _trashBinActiveSprite : _trashBinIdleSprite;
   }
 }
-
