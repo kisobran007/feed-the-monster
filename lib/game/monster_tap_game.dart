@@ -85,11 +85,11 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     GameLevel.level2: 'backgrounds/bg_world2.png',
   };
   static const Map<GameLevel, List<String>> _goodItemsByLevel = {
-    GameLevel.level1: ['apple', 'banana', 'cookie', 'strawberry'],
+    GameLevel.level1: ['apple', 'banana', 'carrot', 'broccoli'],
     GameLevel.level2: ['cupcake', 'lollipop'],
   };
   static const Map<GameLevel, List<String>> _badItemsByLevel = {
-    GameLevel.level1: ['bad_shoe', 'bad_rock', 'bad_soap', 'bad_brick'],
+    GameLevel.level1: ['bad_donut', 'bad_fries', 'bad_pizza', 'bad_candy'],
     GameLevel.level2: ['chili', 'onion'],
   };
 

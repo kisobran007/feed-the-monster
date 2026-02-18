@@ -9,6 +9,20 @@ class FallingItem extends SpriteComponent
   final Function(FallingItem, Vector2)? onDragMoved;
   final double fallSpeed; // pixels per second
   static const double _itemSize = 125;
+  static final Paint _goodGlowSoftPaint = Paint()
+    ..color = const Color(0x4D3ECF6A)
+    ..style = PaintingStyle.fill;
+  static final Paint _goodGlowCorePaint = Paint()
+    ..color = const Color(0x7032B85A)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.5;
+  static final Paint _badGlowSoftPaint = Paint()
+    ..color = const Color(0x4DE53935)
+    ..style = PaintingStyle.fill;
+  static final Paint _badGlowCorePaint = Paint()
+    ..color = const Color(0x70C62828)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.5;
   bool _isDragging = false;
   bool _isHandled = false;
   Vector2? _lastPointerCanvasPosition;
@@ -73,5 +87,34 @@ class FallingItem extends SpriteComponent
     super.onDragCancel(event);
     _isDragging = false;
     _lastPointerCanvasPosition = null;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final itemRect = Rect.fromLTWH(0, 0, size.x, size.y);
+    if (isGood) {
+      final halo = RRect.fromRectAndRadius(
+        itemRect.inflate(2),
+        const Radius.circular(15),
+      );
+      final core = RRect.fromRectAndRadius(
+        itemRect.inflate(0.75),
+        const Radius.circular(13),
+      );
+      canvas.drawRRect(halo, _goodGlowSoftPaint);
+      canvas.drawRRect(core, _goodGlowCorePaint);
+    } else {
+      final halo = RRect.fromRectAndRadius(
+        itemRect.inflate(2),
+        const Radius.circular(15),
+      );
+      final core = RRect.fromRectAndRadius(
+        itemRect.inflate(0.75),
+        const Radius.circular(13),
+      );
+      canvas.drawRRect(halo, _badGlowSoftPaint);
+      canvas.drawRRect(core, _badGlowCorePaint);
+    }
+    super.render(canvas);
   }
 }
