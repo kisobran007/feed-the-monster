@@ -161,8 +161,9 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
   void _layoutAccessories() {
     if (_hatOverlay == null) return;
     _hatOverlay!
-      ..position = Vector2(size.x * 0.5, size.y * 0.02)
-      ..size = Vector2(size.x * 0.74, size.y * 0.36);
+      // Keep the hat anchored over the upper head area across state size changes.
+      ..position = Vector2(size.x * 0.5, size.y * 0.22)
+      ..size = Vector2(size.x * 0.68, size.y * 0.34);
   }
 
   void _applyAccessoryVisibility() {
