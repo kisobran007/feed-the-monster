@@ -1,15 +1,12 @@
 part of '../main.dart';
 
-// Main game class
 class MonsterTapGame extends FlameGame with TapCallbacks {
   late Monster monster;
   late SpriteComponent trashBin;
-  late ScoreDisplay scoreDisplay;
+  late ObjectiveDisplay objectiveDisplay;
   late GameOverDisplay gameOverDisplay;
-  late RectangleComponent playAreaBackground;
-  late RectangleComponent monsterAreaBackground;
-  late RectangleComponent areaDivider;
   late SpriteComponent background;
+
   static const int maxLives = 4;
   static const double baseSpawnInterval = 1.8;
   static const double minSpawnInterval = 0.95;
@@ -19,16 +16,12 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static const double maxFallSpeed = 170;
   static const double fallSpeedStep = 8;
   static const double goodItemChance = 0.65;
-  static const int goodItemPoints = 8;
-  static const int badItemPointsPenalty = 3;
-  static const int missedGoodItemPointsPenalty = 4;
-  static const int badItemDiscardPoints = 2;
-  static const int wrongDropPointsPenalty = 3;
-  static const int missedBadItemPointsPenalty = 2;
   static const double _dropZoneScale = 0.72;
+
   static const String _coinsKey = 'coins_total';
   static const String _selectedLevelKey = 'selected_level';
-  static const String _unlockedLevelIdsKey = 'unlocked_level_ids';
+  static const String _unlockedLevelKey = 'unlockedLevel';
+  static const String _legacyUnlockedLevelIdsKey = 'unlocked_level_ids';
   static const String _unlockedAccessoryIdsKey = 'unlocked_accessory_ids';
   static const String _equippedAccessoryByTargetKey =
       'equipped_accessory_by_target';
@@ -37,22 +30,26 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static const String _world1HatUnlockedKey = 'skin_world1_hat_unlocked';
   static const String _world1HatEquippedKey = 'skin_world1_hat_equipped';
   static const String _legacyMonsterMainId = AccessoryCatalog.monsterMainId;
-  int score = 0;
+
   int lives = maxLives;
-  int bestScore = 0;
   int goodStreak = 0;
+  int mistakes = 0;
   int totalCoins = 0;
   int lastRunCoinsEarned = 0;
+  int unlockedLevel = 1;
   String selectedMonsterId = MonsterCatalog.defaultMonsterId;
   final Set<String> unlockedMonsterIds = <String>{};
   GameLevel selectedLevel = GameLevel.level1;
-  final Set<GameLevel> unlockedLevels = <GameLevel>{};
+  late GameLevel _activeRunLevel;
   final Set<String> unlockedAccessoryIds = <String>{};
   final Map<String, String> equippedAccessoryByTarget = <String, String>{};
+
   bool isGameOver = false;
   bool isStarted = false;
   bool isPaused = false;
   bool isTransitioning = false;
+  bool _runRewardGranted = false;
+
   double survivalTime = 0;
   double _difficultyTimer = 0;
   double currentSpawnInterval = baseSpawnInterval;
@@ -61,6 +58,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   double _shakeTime = 0;
   static const double _shakeDuration = 0.14;
   static const double _shakeStrength = 9;
+
   final Random _fxRandom = Random();
   final Random _musicRandom = Random();
   final List<String> _musicTracks = const [
@@ -71,6 +69,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   bool _trashBinActive = false;
   late Sprite _trashBinIdleSprite;
   late Sprite _trashBinActiveSprite;
+
   static const double monsterAreaRatio = 0.28;
   static const double _monsterXRatio = 0.22;
   static const double _trashBinXRatio = 0.85;
@@ -78,34 +77,38 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   double get gameplayBottomY => size.y * (1 - monsterAreaRatio);
   double get monsterAreaTopY => gameplayBottomY;
   double get monsterAreaHeight => size.y - monsterAreaTopY;
+  bool get hasNextUnlockedLevel {
+    final next = GameLevel.fromLevelNumber(selectedLevel.levelNumber + 1);
+    if (next == null) return false;
+    return unlockedLevel >= next.levelNumber;
+  }
 
-  static const int level1UnlockScore = 300;
-  static const Map<GameLevel, String> _backgroundByLevel = {
+  static final Map<GameLevel, String> _backgroundByLevel = {
     GameLevel.level1: 'backgrounds/bg_meadow.png',
     GameLevel.level2: 'backgrounds/bg_world2.png',
   };
-  static const Map<GameLevel, List<String>> _goodItemsByLevel = {
+  static final Map<GameLevel, List<String>> _goodItemsByLevel = {
     GameLevel.level1: ['apple', 'banana', 'carrot', 'broccoli'],
     GameLevel.level2: ['cupcake', 'lollipop'],
   };
-  static const Map<GameLevel, List<String>> _badItemsByLevel = {
+  static final Map<GameLevel, List<String>> _badItemsByLevel = {
     GameLevel.level1: ['bad_donut', 'bad_fries', 'bad_pizza', 'bad_candy'],
     GameLevel.level2: ['chili', 'onion'],
   };
 
+  List<LevelObjective> get _objectives => _activeRunLevel.objectives;
+
   @override
   Future<void> onLoad() async {
     final bgSprite = await loadSprite('backgrounds/bg_meadow.png');
-    background = SpriteComponent(
-      sprite: bgSprite,
-      priority: -100,
-    );
+    background = SpriteComponent(sprite: bgSprite, priority: -100);
     add(background);
 
-    // Add monster in dedicated bottom area
     monster = Monster(monsterId: selectedMonsterId)
       ..position = Vector2(
-          size.x * _monsterXRatio, monsterAreaTopY + (monsterAreaHeight * 0.6))
+        size.x * _monsterXRatio,
+        monsterAreaTopY + (monsterAreaHeight * 0.6),
+      )
       ..anchor = Anchor.center;
     add(monster);
 
@@ -118,37 +121,18 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     );
     add(trashBin);
 
-    // Add score display
-    scoreDisplay = ScoreDisplay()..position = Vector2(20, 24);
-    add(scoreDisplay);
-    scoreDisplay.updateHud(
-      score,
-      totalCoins,
-      lives,
-      maxLives,
-      selectedLevel,
-      _goalText(),
-      forceRepaint: true,
-    );
+    objectiveDisplay = ObjectiveDisplay()..position = Vector2(20, 24);
+    add(objectiveDisplay);
 
-    // Add game over display (hidden initially)
     gameOverDisplay = GameOverDisplay()..anchor = Anchor.center;
     add(gameOverDisplay);
 
-    await _loadBestScore();
     await loadCustomizationProgress();
+    _prepareActiveRunLevel();
     await _applySelectedMonster();
     await _applyLevelTheme(selectedLevel);
     await _initBackgroundMusic();
-    scoreDisplay.updateHud(
-      score,
-      totalCoins,
-      lives,
-      maxLives,
-      selectedLevel,
-      _goalText(),
-      forceRepaint: true,
-    );
+    _refreshObjectiveHud();
     _layoutScene();
     _applyMonsterAccessories();
   }
@@ -172,7 +156,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       currentFallSpeed = min(maxFallSpeed, currentFallSpeed + fallSpeedStep);
     }
 
-    // Spawn items periodically
     spawnTimer += dt;
     if (spawnTimer >= currentSpawnInterval) {
       spawnTimer = 0;
@@ -183,7 +166,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   void spawnRandomItem() {
     final random = Random();
     final isGood = random.nextDouble() < goodItemChance;
-
     final goodList = _goodItemsByLevel[selectedLevel]!;
     final badList = _badItemsByLevel[selectedLevel]!;
 
@@ -201,12 +183,12 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     )
       ..position = Vector2(random.nextDouble() * (size.x - 90) + 45, -50)
       ..anchor = Anchor.center;
-
     add(item);
   }
 
   void handleItemDropped(FallingItem item, Vector2 dropPosition) {
     if (isGameOver || isTransitioning) return;
+
     _setTrashBinActive(false);
     final onMonster =
         _monsterDropRect().contains(Offset(dropPosition.x, dropPosition.y));
@@ -215,7 +197,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
     if (item.isGood && onMonster) {
       goodStreak += 1;
-      score += goodItemPoints;
+      _incrementObjective(ObjectiveType.feedHealthy);
+      _syncComboObjective();
       if (goodStreak >= 3) {
         monster.showStreak();
         add(
@@ -250,7 +233,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       );
     } else if (!item.isGood && onTrashBin) {
       goodStreak += 1;
-      score += badItemDiscardPoints;
+      _incrementObjective(ObjectiveType.throwJunk);
+      _syncComboObjective();
       monster.showHappy();
       add(
         TapBurst(
@@ -264,8 +248,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       );
     } else {
       goodStreak = 0;
-      score -= wrongDropPointsPenalty;
       lives -= 1;
+      _registerMistake();
       monster.showOops();
       _triggerScreenShake();
       add(
@@ -278,19 +262,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
           spreadSpeed: 170,
         ),
       );
-      if (lives <= 0) {
-        triggerGameOver();
-      }
     }
-    _checkLevelUnlockProgress();
-    scoreDisplay.updateHud(
-      score,
-      totalCoins,
-      lives,
-      maxLives,
-      selectedLevel,
-      _goalText(),
-    );
+
     item.removeFromParent();
   }
 
@@ -309,64 +282,133 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (isGameOver || isTransitioning) return;
     _setTrashBinActive(false);
 
-    // Missing any item costs one life.
     goodStreak = 0;
     lives -= 1;
-    if (item.isGood) {
-      score -= missedGoodItemPointsPenalty;
-    } else {
-      score -= missedBadItemPointsPenalty;
-    }
+    _registerMistake();
     monster.showOops();
     _triggerScreenShake();
-    _checkLevelUnlockProgress();
+  }
+
+  void _prepareActiveRunLevel() {
+    _activeRunLevel = selectedLevel.freshRunCopy();
+    mistakes = 0;
+  }
+
+  void _incrementObjective(ObjectiveType type, {int by = 1}) {
+    final objective = _objectiveByType(type);
+    if (objective == null) return;
+    final previous = objective.current;
+    objective.current = min(objective.target, objective.current + by);
+    if (objective.current != previous) {
+      _refreshObjectiveHud(bumpedObjective: type);
+      _checkLevelCompletion();
+    }
+  }
+
+  void _syncComboObjective() {
+    final objective = _objectiveByType(ObjectiveType.comboStreak);
+    if (objective == null) return;
+    if (goodStreak <= objective.current) return;
+    objective.current = min(goodStreak, objective.target);
+    _refreshObjectiveHud(bumpedObjective: ObjectiveType.comboStreak);
+    _checkLevelCompletion();
+  }
+
+  void _registerMistake() {
+    mistakes += 1;
+    final objective = _objectiveByType(ObjectiveType.maxMistakes);
+    if (objective != null) {
+      objective.current = mistakes;
+      _refreshObjectiveHud(bumpedObjective: ObjectiveType.maxMistakes);
+      if (mistakes > objective.target) {
+        triggerGameOver();
+        return;
+      }
+    } else {
+      _refreshObjectiveHud();
+    }
     if (lives <= 0) {
       triggerGameOver();
       return;
     }
-    scoreDisplay.updateHud(
-      score,
-      totalCoins,
-      lives,
-      maxLives,
-      selectedLevel,
-      _goalText(),
-    );
+    _checkLevelCompletion();
+  }
+
+  LevelObjective? _objectiveByType(ObjectiveType type) {
+    for (final objective in _objectives) {
+      if (objective.type == type) {
+        return objective;
+      }
+    }
+    return null;
+  }
+
+  void _checkLevelCompletion() {
+    if (isGameOver || isTransitioning) return;
+    final allCompleted = _objectives.every((objective) => objective.isCompleted);
+    if (allCompleted) {
+      completeLevel();
+    }
+  }
+
+  void completeLevel() {
+    if (isGameOver || isTransitioning) return;
+    isGameOver = true;
+    isPaused = false;
+    pauseEngine();
+    monster.showHappy();
+    _unlockNextLevelIfNeeded();
+    _awardRunCoins(completed: true);
+    _refreshObjectiveHud();
+    gameOverDisplay.showLevelCompleted(_objectives);
+    _saveCustomizationProgress();
+    if (_musicReady) {
+      FlameAudio.bgm.pause();
+    }
   }
 
   void triggerGameOver() {
+    if (isGameOver) return;
     isGameOver = true;
     isPaused = false;
+    pauseEngine();
     monster.showGameOver();
-    _awardRunCoins();
-    if (score > bestScore) {
-      bestScore = score;
-      _saveBestScore();
+    _awardRunCoins(completed: false);
+    _refreshObjectiveHud();
+    gameOverDisplay.showLevelFailed(_objectives);
+    if (_musicReady) {
+      FlameAudio.bgm.pause();
     }
-    scoreDisplay.updateHud(
-      score,
-      totalCoins,
-      lives,
-      maxLives,
-      selectedLevel,
-      _goalText(),
-    );
-    gameOverDisplay.show(score, survivalTime);
+  }
+
+  void proceedAfterLevelCompleted() {
+    final nextLevel = GameLevel.fromLevelNumber(selectedLevel.levelNumber + 1);
+    if (nextLevel != null && isLevelUnlocked(nextLevel)) {
+      selectedLevel = nextLevel;
+    }
+    restartGame();
+    isPaused = false;
+    resumeEngine();
+    if (_musicReady) {
+      FlameAudio.bgm.resume();
+    }
   }
 
   void restartGame() {
-    score = 0;
     lives = maxLives;
     goodStreak = 0;
+    mistakes = 0;
     isGameOver = false;
     isPaused = false;
     isTransitioning = false;
+    _runRewardGranted = false;
     spawnTimer = 0;
     survivalTime = 0;
     _difficultyTimer = 0;
     currentSpawnInterval = baseSpawnInterval;
     currentFallSpeed = baseFallSpeed;
-    // Remove all falling items
+    _prepareActiveRunLevel();
+
     children
         .whereType<FallingItem>()
         .toList()
@@ -375,15 +417,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     gameOverDisplay.hide();
     _setTrashBinActive(false);
     monster.showIdle();
-    scoreDisplay.updateHud(
-      score,
-      totalCoins,
-      lives,
-      maxLives,
-      selectedLevel,
-      _goalText(),
-      forceRepaint: true,
-    );
+    _refreshObjectiveHud();
     _applyLevelTheme(selectedLevel);
   }
 
@@ -393,18 +427,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     resumeEngine();
     restartGame();
     _playRandomBackgroundTrack();
-    // Force one extra HUD repaint right after start to avoid first-frame glyph fallback glitches.
     Future.delayed(const Duration(milliseconds: 1), () {
       if (!isGameOver) {
-        scoreDisplay.updateHud(
-          score,
-          totalCoins,
-          lives,
-          maxLives,
-          selectedLevel,
-          _goalText(),
-          forceRepaint: true,
-        );
+        _refreshObjectiveHud();
       }
     });
   }
@@ -419,12 +444,12 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     }
   }
 
-  void _checkLevelUnlockProgress() {
-    if (selectedLevel != GameLevel.level1) return;
-    if (score < level1UnlockScore) return;
-    if (unlockedLevels.contains(GameLevel.level2)) return;
-    unlockedLevels.add(GameLevel.level2);
-    _saveCustomizationProgress();
+  void _unlockNextLevelIfNeeded() {
+    final nextLevelNumber = selectedLevel.levelNumber + 1;
+    final nextLevel = GameLevel.fromLevelNumber(nextLevelNumber);
+    if (nextLevel == null) return;
+    if (unlockedLevel >= nextLevelNumber) return;
+    unlockedLevel = nextLevelNumber;
   }
 
   Future<void> _applyLevelTheme(GameLevel level) async {
@@ -432,14 +457,15 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     _applyMonsterAccessories();
   }
 
-  String _goalText() {
-    if (selectedLevel == GameLevel.level1) {
-      if (unlockedLevels.contains(GameLevel.level2)) {
-        return 'Goal complete: Level 2 unlocked';
-      }
-      return 'Goal: reach $level1UnlockScore points to unlock Level 2';
-    }
-    return 'Goal: survive and collect more gold in Level 2';
+  void _refreshObjectiveHud({ObjectiveType? bumpedObjective}) {
+    objectiveDisplay.updateHud(
+      gold: totalCoins,
+      lives: lives,
+      maxLives: maxLives,
+      level: selectedLevel,
+      objectives: _objectives,
+      bumpedObjective: bumpedObjective,
+    );
   }
 
   void _triggerScreenShake() {
@@ -464,24 +490,28 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     }
   }
 
-  Future<void> _loadBestScore() async {
-    final prefs = await SharedPreferences.getInstance();
-    bestScore = prefs.getInt('best_score') ?? 0;
-  }
-
   Future<void> loadCustomizationProgress() async {
     final prefs = await SharedPreferences.getInstance();
     totalCoins = prefs.getInt(_coinsKey) ?? 0;
-    unlockedLevels
-      ..clear()
-      ..addAll(
-          _decodeUnlockedLevels(prefs.getStringList(_unlockedLevelIdsKey)));
-    if (unlockedLevels.isEmpty) {
-      unlockedLevels.add(GameLevel.level1);
+
+    final persistedUnlockedLevel = prefs.getInt(_unlockedLevelKey);
+    unlockedLevel = max(1, persistedUnlockedLevel ?? 1);
+    final legacyUnlockedIds = prefs.getStringList(_legacyUnlockedLevelIdsKey);
+    if (persistedUnlockedLevel == null &&
+        legacyUnlockedIds != null &&
+        legacyUnlockedIds.isNotEmpty) {
+      var legacyMax = 1;
+      for (final id in legacyUnlockedIds) {
+        final level = GameLevel.fromId(id);
+        if (level != null) {
+          legacyMax = max(legacyMax, level.levelNumber);
+        }
+      }
+      unlockedLevel = max(unlockedLevel, legacyMax);
     }
-    final persistedLevelId = prefs.getString(_selectedLevelKey);
-    final persistedLevel = _levelFromId(persistedLevelId);
-    if (persistedLevel != null && unlockedLevels.contains(persistedLevel)) {
+
+    final persistedLevel = GameLevel.fromId(prefs.getString(_selectedLevelKey));
+    if (persistedLevel != null && isLevelUnlocked(persistedLevel)) {
       selectedLevel = persistedLevel;
     } else {
       selectedLevel = GameLevel.level1;
@@ -526,7 +556,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       }
     }
 
-    // Backward compatibility: migrate old world1-hat bool flags.
     final legacyUnlocked = prefs.getBool(_world1HatUnlockedKey) ?? false;
     final legacyEquipped = prefs.getBool(_world1HatEquippedKey) ?? false;
     if (legacyUnlocked) {
@@ -540,30 +569,39 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     }
 
     if (isLoaded) {
+      _prepareActiveRunLevel();
       await _applySelectedMonster();
       await _applyLevelTheme(selectedLevel);
       _applyMonsterAccessories();
+      _refreshObjectiveHud();
     }
   }
 
   Future<void> _saveCustomizationProgress() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_coinsKey, totalCoins);
-    await prefs.setString(_selectedLevelKey, selectedLevel.name);
-    await prefs.setStringList(
-      _unlockedLevelIdsKey,
-      unlockedLevels.map((level) => level.name).toList(),
-    );
+    await prefs.setString(_selectedLevelKey, selectedLevel.id);
+    await prefs.setInt(_unlockedLevelKey, unlockedLevel);
+
+    final legacyUnlockedIds = GameLevel.values
+        .where((level) => level.levelNumber <= unlockedLevel)
+        .map((level) => level.id)
+        .toList();
+    await prefs.setStringList(_legacyUnlockedLevelIdsKey, legacyUnlockedIds);
+
     await prefs.setString(_selectedMonsterIdKey, selectedMonsterId);
     await prefs.setStringList(
-        _unlockedMonsterIdsKey, unlockedMonsterIds.toList());
+      _unlockedMonsterIdsKey,
+      unlockedMonsterIds.toList(),
+    );
     await prefs.setStringList(
-        _unlockedAccessoryIdsKey, unlockedAccessoryIds.toList());
+      _unlockedAccessoryIdsKey,
+      unlockedAccessoryIds.toList(),
+    );
     await prefs.setString(
       _equippedAccessoryByTargetKey,
       jsonEncode(equippedAccessoryByTarget),
     );
-    // Keep legacy values in sync while older code/paths may exist.
     await prefs.setBool(_world1HatUnlockedKey, isWorld1HatUnlocked);
     await prefs.setBool(_world1HatEquippedKey, isWorld1HatEquipped);
   }
@@ -586,13 +624,19 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     monster.setHatAccessoryAssetPath(hatItem?.assetPath);
   }
 
-  int _calculateCoinsFromScore(int finalScore) {
-    if (finalScore <= 0) return 0;
-    return max(1, finalScore ~/ 40);
+  int _calculateCoinsForRun({required bool completed}) {
+    final completedObjectives =
+        _objectives.where((objective) => objective.isCompleted).length;
+    if (completed) {
+      return 12 + (selectedLevel.levelNumber * 4) + (completedObjectives * 3);
+    }
+    return max(1, completedObjectives * 2);
   }
 
-  void _awardRunCoins() {
-    final earned = _calculateCoinsFromScore(score);
+  void _awardRunCoins({required bool completed}) {
+    if (_runRewardGranted) return;
+    _runRewardGranted = true;
+    final earned = _calculateCoinsForRun(completed: completed);
     lastRunCoinsEarned = earned;
     if (earned <= 0) return;
     totalCoins += earned;
@@ -661,6 +705,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     totalCoins -= item.cost;
     unlockedAccessoryIds.add(accessoryId);
     await _saveCustomizationProgress();
+    _refreshObjectiveHud();
     return true;
   }
 
@@ -695,7 +740,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   List<GameLevel> get availableLevels => GameLevel.values;
 
   bool isLevelUnlocked(GameLevel level) {
-    return unlockedLevels.contains(level);
+    return level.levelNumber <= unlockedLevel;
   }
 
   Future<void> selectLevel(GameLevel level) async {
@@ -705,16 +750,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (isStarted) {
       restartGame();
     } else if (isLoaded) {
+      _prepareActiveRunLevel();
       await _applyLevelTheme(selectedLevel);
-      scoreDisplay.updateHud(
-        score,
-        totalCoins,
-        lives,
-        maxLives,
-        selectedLevel,
-        _goalText(),
-        forceRepaint: true,
-      );
+      _refreshObjectiveHud();
     }
   }
 
@@ -736,6 +774,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     totalCoins -= character.unlockCost;
     unlockedMonsterIds.add(monsterId);
     await _saveCustomizationProgress();
+    _refreshObjectiveHud();
     return true;
   }
 
@@ -749,40 +788,12 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   String _targetKey(GameLevel level, String monsterId) {
-    return '${level.name}:$monsterId';
-  }
-
-  GameLevel? _levelFromId(String? id) {
-    if (id == null || id.isEmpty) return null;
-    for (final level in GameLevel.values) {
-      if (level.name == id) return level;
-    }
-    return null;
-  }
-
-  Set<GameLevel> _decodeUnlockedLevels(List<String>? ids) {
-    if (ids == null || ids.isEmpty) {
-      return <GameLevel>{GameLevel.level1};
-    }
-    final result = <GameLevel>{};
-    for (final id in ids) {
-      final level = _levelFromId(id);
-      if (level != null) {
-        result.add(level);
-      }
-    }
-    result.add(GameLevel.level1);
-    return result;
+    return '${level.id}:$monsterId';
   }
 
   Future<void> _applySelectedMonster() async {
     if (!isLoaded || !monster.isLoaded) return;
     await monster.setMonsterId(selectedMonsterId);
-  }
-
-  Future<void> _saveBestScore() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('best_score', bestScore);
   }
 
   Future<void> _initBackgroundMusic() async {
@@ -800,9 +811,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   @override
-  void onTapDown(TapDownEvent event) {
-    // Tap handled by GameOverDisplay
-  }
+  void onTapDown(TapDownEvent event) {}
 
   @override
   Color backgroundColor() => const Color(0xFF2A2A2A);
@@ -853,7 +862,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
         monsterAreaTopY + (monsterAreaHeight * 0.62),
       )
       ..size = Vector2(size.x * 0.19, size.x * 0.19);
-    scoreDisplay.position = Vector2(20, 24);
+    objectiveDisplay.position = Vector2(20, 24);
 
     gameOverDisplay
       ..position = Vector2(size.x / 2, bottomY / 2)

@@ -1,68 +1,45 @@
 part of '../../main.dart';
-class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameReference<MonsterTapGame> {
-  late TextComponent gameOverText;
-  late TextComponent finalScoreText;
-  late TextComponent survivalTimeText;
-  late TextComponent restartText;
+
+class GameOverDisplay extends PositionComponent
+    with TapCallbacks, HasGameReference<MonsterTapGame> {
+  late TextComponent titleText;
+  late TextComponent actionText;
   bool isVisible = false;
+  bool isCompletedState = false;
+  List<LevelObjective> _objectives = <LevelObjective>[];
 
   @override
   Future<void> onLoad() async {
-    size = Vector2(400, 300);
-    
-    gameOverText = TextComponent(
-      text: 'Game Over!',
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.red,
-          fontSize: 48,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      anchor: Anchor.center,
-      position: Vector2(size.x / 2, 70),
-    );
+    size = Vector2(420, 320);
 
-    finalScoreText = TextComponent(
+    titleText = TextComponent(
       text: '',
       textRenderer: TextPaint(
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 32,
+          fontSize: 42,
+          fontWeight: FontWeight.bold,
         ),
       ),
       anchor: Anchor.center,
-      position: Vector2(size.x / 2, 140),
+      position: Vector2(size.x / 2, size.y * 0.2),
     );
 
-    survivalTimeText = TextComponent(
+    actionText = TextComponent(
       text: '',
       textRenderer: TextPaint(
         style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 24,
-        ),
-      ),
-      anchor: Anchor.center,
-      position: Vector2(size.x / 2, 230),
-    );
-
-    restartText = TextComponent(
-      text: 'Tap to Restart',
-      textRenderer: TextPaint(
-        style: const TextStyle(
           color: Colors.yellow,
-          fontSize: 28,
+          fontSize: 26,
+          fontWeight: FontWeight.w700,
         ),
       ),
       anchor: Anchor.center,
-      position: Vector2(size.x / 2, 210),
+      position: Vector2(size.x / 2, size.y * 0.87),
     );
 
-    add(gameOverText);
-    add(finalScoreText);
-    add(survivalTimeText);
-    add(restartText);
+    add(titleText);
+    add(actionText);
     _layoutText();
   }
 
@@ -72,57 +49,121 @@ class GameOverDisplay extends PositionComponent with TapCallbacks, HasGameRefere
   }
 
   void _layoutText() {
-    gameOverText.position = Vector2(size.x / 2, size.y * 0.22);
-    finalScoreText.position = Vector2(size.x / 2, size.y * 0.44);
-    survivalTimeText.position = Vector2(size.x / 2, size.y * 0.60);
-    restartText.position = Vector2(size.x / 2, size.y * 0.84);
+    titleText.position = Vector2(size.x / 2, size.y * 0.2);
+    actionText.position = Vector2(size.x / 2, size.y * 0.87);
   }
 
-  void show(int finalScore, double survivalTime) {
+  void showLevelCompleted(List<LevelObjective> objectives) {
     isVisible = true;
-    finalScoreText.text = 'Final Score: $finalScore';
-    survivalTimeText.text = 'Time: ${survivalTime.toStringAsFixed(1)}s';
+    isCompletedState = true;
+    _objectives = objectives.map((objective) => objective.clone()).toList();
+    titleText.text = 'Level Completed!';
+    actionText.text = game.hasNextUnlockedLevel
+        ? 'Tap to Continue'
+        : 'Tap to Replay';
+  }
+
+  void showLevelFailed(List<LevelObjective> objectives) {
+    isVisible = true;
+    isCompletedState = false;
+    _objectives = objectives.map((objective) => objective.clone()).toList();
+    titleText.text = 'Level Failed';
+    actionText.text = 'Tap to Restart';
   }
 
   void hide() {
     isVisible = false;
+    _objectives = <LevelObjective>[];
   }
 
   @override
   void renderTree(Canvas canvas) {
     if (!isVisible) return;
 
-    final fullRect = Rect.fromLTWH(
-      0,
-      0,
-      game.size.x,
-      game.size.y,
-    );
-
+    final fullRect = Rect.fromLTWH(0, 0, game.size.x, game.size.y);
     final gradient = RadialGradient(
       center: Alignment.center,
       radius: 0.9,
       colors: [
-        Colors.black.withValues(alpha: 0.15),
-        Colors.black.withValues(alpha: 0.75),
+        Colors.black.withValues(alpha: 0.12),
+        Colors.black.withValues(alpha: 0.78),
       ],
-      stops: const [0.4, 1.0],
+      stops: const [0.35, 1.0],
     );
 
-    final paint = Paint()..shader = gradient.createShader(fullRect);
-    canvas.drawRect(fullRect, paint);
+    canvas.drawRect(fullRect, Paint()..shader = gradient.createShader(fullRect));
+
+    final panelRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(size.x * 0.08, size.y * 0.28, size.x * 0.84, size.y * 0.52),
+      const Radius.circular(16),
+    );
+    canvas.drawRRect(panelRect, Paint()..color = const Color(0xDD1E1E1E));
+    canvas.drawRRect(
+      panelRect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.3
+        ..color = const Color(0x66FFFFFF),
+    );
+
+    var y = size.y * 0.35;
+    for (final objective in _objectives) {
+      final objectiveText =
+          '${_objectiveLabel(objective.type)}  ${objective.current}/${objective.target}';
+      final ok = objective.isCompleted;
+      final style = TextStyle(
+        color: ok ? const Color(0xFFB9F6CA) : const Color(0xFFFFCDD2),
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+      );
+      _paintText(canvas, objectiveText, Offset(size.x * 0.16, y), style);
+      if (ok) {
+        _paintText(
+          canvas,
+          '✓',
+          Offset(size.x * 0.78, y),
+          const TextStyle(
+            color: Color(0xFF69F0AE),
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+      }
+      y += 34;
+    }
+
     super.renderTree(canvas);
   }
 
+  String _objectiveLabel(ObjectiveType type) {
+    switch (type) {
+      case ObjectiveType.feedHealthy:
+        return 'Feed Healthy';
+      case ObjectiveType.throwJunk:
+        return 'Throw Junk';
+      case ObjectiveType.maxMistakes:
+        return 'Mistakes';
+      case ObjectiveType.comboStreak:
+        return 'Combo';
+    }
+  }
 
-
+  void _paintText(Canvas canvas, String text, Offset offset, TextStyle style) {
+    final textPainter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    textPainter.paint(canvas, offset);
+  }
 
   @override
   void onTapDown(TapDownEvent event) {
-    if (isVisible) {
-      final localPoint = event.localPosition;
-      // Check if tap is near restart text.
-      if ((localPoint.y - restartText.position.y).abs() < 36) {
+    if (!isVisible) return;
+    final localPoint = event.localPosition;
+    if ((localPoint.y - actionText.position.y).abs() < 36) {
+      if (isCompletedState) {
+        game.proceedAfterLevelCompleted();
+      } else {
         game.restartGame();
       }
     }

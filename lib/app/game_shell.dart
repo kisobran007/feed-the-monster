@@ -591,7 +591,7 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                     if (!isUnlocked && selectedLevel == GameLevel.level2)
                       const Text(
-                        'Complete Level 1 with 300+ score to unlock.',
+                        'Complete objectives in Level 1 to unlock.',
                         style: TextStyle(color: Color(0xFFFFAB91)),
                       ),
                   ],

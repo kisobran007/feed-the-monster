@@ -15,7 +15,7 @@ part 'game/models/accessory_item.dart';
 part 'game/components/monster.dart';
 part 'game/components/falling_item.dart';
 part 'game/effects/tap_burst.dart';
-part 'game/components/score_display.dart';
+part 'game/components/objective_display.dart';
 part 'game/components/game_over_display.dart';
 
 void main() {

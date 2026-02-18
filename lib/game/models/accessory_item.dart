@@ -13,7 +13,7 @@ class AccessoryItem {
   final int cost;
   final String assetPath;
 
-  const AccessoryItem({
+  AccessoryItem({
     required this.id,
     required this.label,
     required this.monsterId,
@@ -31,7 +31,7 @@ class AccessoryCatalog {
   static const String world1WizardHatId = 'world1_monster_main_hat_wizard';
   static const String world1BaseballHatId = 'world1_monster_main_hat_baseball';
 
-  static const List<AccessoryItem> items = [
+  static final List<AccessoryItem> items = [
     AccessoryItem(
       id: world1PartyHatId,
       label: 'Party Hat',
