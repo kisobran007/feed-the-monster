@@ -124,7 +124,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     objectiveDisplay = ObjectiveDisplay()..position = Vector2(20, 24);
     add(objectiveDisplay);
 
-    gameOverDisplay = GameOverDisplay()..anchor = Anchor.center;
+    gameOverDisplay = GameOverDisplay()..anchor = Anchor.topLeft;
     add(gameOverDisplay);
 
     await loadCustomizationProgress();
@@ -355,7 +355,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (isGameOver || isTransitioning) return;
     isGameOver = true;
     isPaused = false;
-    pauseEngine();
     monster.showHappy();
     _unlockNextLevelIfNeeded();
     _awardRunCoins(completed: true);
@@ -371,7 +370,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (isGameOver) return;
     isGameOver = true;
     isPaused = false;
-    pauseEngine();
     monster.showGameOver();
     _awardRunCoins(completed: false);
     _refreshObjectiveHud();
@@ -845,9 +843,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   void _layoutScene() {
-    final bottomY = gameplayBottomY;
-    final overlaySize = Vector2(size.x * 0.92, min(520.0, bottomY * 0.95));
-
     background
       ..position = Vector2.zero()
       ..size = size;
@@ -865,8 +860,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     objectiveDisplay.position = Vector2(20, 24);
 
     gameOverDisplay
-      ..position = Vector2(size.x / 2, bottomY / 2)
-      ..setDisplaySize(overlaySize);
+      ..position = Vector2.zero()
+      ..setDisplaySize(size);
   }
 
   Rect _monsterDropRect() {

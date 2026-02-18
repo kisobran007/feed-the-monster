@@ -58,9 +58,8 @@ class GameOverDisplay extends PositionComponent
     isCompletedState = true;
     _objectives = objectives.map((objective) => objective.clone()).toList();
     titleText.text = 'Level Completed!';
-    actionText.text = game.hasNextUnlockedLevel
-        ? 'Tap to Continue'
-        : 'Tap to Replay';
+    actionText.text =
+        game.hasNextUnlockedLevel ? 'Tap to Continue' : 'Tap to Replay';
   }
 
   void showLevelFailed(List<LevelObjective> objectives) {
@@ -80,7 +79,7 @@ class GameOverDisplay extends PositionComponent
   void renderTree(Canvas canvas) {
     if (!isVisible) return;
 
-    final fullRect = Rect.fromLTWH(0, 0, game.size.x, game.size.y);
+    final fullRect = Rect.fromLTWH(0, 0, size.x, size.y);
     final gradient = RadialGradient(
       center: Alignment.center,
       radius: 0.9,
@@ -90,7 +89,6 @@ class GameOverDisplay extends PositionComponent
       ],
       stops: const [0.35, 1.0],
     );
-
     canvas.drawRect(fullRect, Paint()..shader = gradient.createShader(fullRect));
 
     final panelRect = RRect.fromRectAndRadius(
@@ -120,11 +118,11 @@ class GameOverDisplay extends PositionComponent
       if (ok) {
         _paintText(
           canvas,
-          '✓',
-          Offset(size.x * 0.78, y),
+          'OK',
+          Offset(size.x * 0.78, y + 2),
           const TextStyle(
             color: Color(0xFF69F0AE),
-            fontSize: 24,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         );
@@ -160,13 +158,14 @@ class GameOverDisplay extends PositionComponent
   void onTapDown(TapDownEvent event) {
     if (!isVisible) return;
     final localPoint = event.localPosition;
-    if ((localPoint.y - actionText.position.y).abs() < 36) {
-      if (isCompletedState) {
-        game.proceedAfterLevelCompleted();
-      } else {
-        game.restartGame();
-      }
+    final isOnActionRow = (localPoint.y - actionText.position.y).abs() < 44 &&
+        (localPoint.x - actionText.position.x).abs() < (size.x * 0.3);
+    if (!isOnActionRow) return;
+    if (isCompletedState) {
+      game.proceedAfterLevelCompleted();
+      return;
     }
+    game.restartGame();
   }
 
   @override
