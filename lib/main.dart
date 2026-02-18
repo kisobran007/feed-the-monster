@@ -8,10 +8,16 @@ import 'dart:convert';
 import 'dart:math';
 
 part 'app/game_shell.dart';
+part 'app/dialogs/levels_menu_dialog.dart';
+part 'app/dialogs/monster_menu_dialog.dart';
+part 'app/widgets/pause_overlay.dart';
+part 'app/widgets/start_overlay.dart';
 part 'game/monster_tap_game.dart';
 part 'game/models/game_world.dart';
 part 'game/models/monster_character.dart';
 part 'game/models/accessory_item.dart';
+part 'game/services/objective_engine.dart';
+part 'game/services/progress_repository.dart';
 part 'game/components/monster.dart';
 part 'game/components/falling_item.dart';
 part 'game/effects/tap_burst.dart';
