@@ -34,13 +34,18 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   void Function(LevelCompletionResult result)? onLevelCompleted;
 
   static const int _twoStarMistakeThreshold = 2;
+  static const double _freezeDurationSeconds = 3.5;
+  static const double _freezeFallMultiplier = 0.42;
 
   double survivalTime = 0;
+  double _runTimeRemainingSeconds = 0;
+  double _freezeTimeRemainingSeconds = 0;
   double _shakeTime = 0;
   static const double _shakeDuration = 0.14;
   static const double _shakeStrength = 9;
 
   final Random _fxRandom = Random();
+  final Random _spawnRandom = Random();
   bool _trashBinActive = false;
   late Sprite _trashBinIdleSprite;
   late Sprite _trashBinActiveSprite;
@@ -52,6 +57,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   double get gameplayBottomY => size.y * (1 - monsterAreaRatio);
   double get monsterAreaTopY => gameplayBottomY;
   double get monsterAreaHeight => size.y - monsterAreaTopY;
+  double get timeRemainingSeconds => max(0, _runTimeRemainingSeconds);
+  double get fallSpeedMultiplier =>
+      _freezeTimeRemainingSeconds > 0 ? _freezeFallMultiplier : 1;
   bool get hasNextUnlockedLevel {
     final next = GameLevel.fromLevelNumber(selectedLevel.levelNumber + 1);
     if (next == null) return false;
@@ -62,16 +70,103 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     GameLevel.level1: 'backgrounds/bg_meadow.png',
     GameLevel.level2: 'backgrounds/bg_bathroom.png',
     GameLevel.level3: 'backgrounds/bg_safety_playground.png',
+    GameLevel.level4: 'backgrounds/bg_world2.png',
+    GameLevel.level5: 'backgrounds/bg_meadow.png',
+    GameLevel.level6: 'backgrounds/bg_bathroom.png',
+    GameLevel.level7: 'backgrounds/bg_safety_playground.png',
+    GameLevel.level8: 'backgrounds/bg_world2.png',
+    GameLevel.level9: 'backgrounds/bg_meadow.png',
+    GameLevel.level10: 'backgrounds/bg_world2.png',
   };
   static final Map<GameLevel, List<String>> _goodItemsByLevel = {
-    GameLevel.level1: ['apple', 'banana', 'carrot', 'broccoli'],
-    GameLevel.level2: ['good_soap', 'toothbrush', 'clean_sponge', 'shampoo'],
-    GameLevel.level3: ['safe_helmet', 'safe_vest', 'safe_seatbelt', 'safe_first_aid_kit'],
+    GameLevel.level1: ['apple', 'banana', 'carrot', 'broccoli', 'strawberry'],
+    GameLevel.level2: [
+      'good_soap',
+      'toothbrush',
+      'clean_sponge',
+      'shampoo',
+      'safe_first_aid_kit',
+    ],
+    GameLevel.level3: [
+      'safe_helmet',
+      'safe_vest',
+      'safe_seatbelt',
+      'safe_first_aid_kit',
+      'toothbrush',
+    ],
+    GameLevel.level4: [
+      'apple',
+      'banana',
+      'carrot',
+      'broccoli',
+      'safe_helmet',
+      'safe_vest',
+    ],
+    GameLevel.level5: ['strawberry', 'apple', 'banana', 'good_soap', 'shampoo'],
+    GameLevel.level6: [
+      'apple',
+      'broccoli',
+      'safe_seatbelt',
+      'safe_first_aid_kit',
+      'toothbrush',
+    ],
+    GameLevel.level7: ['banana', 'carrot', 'safe_helmet', 'good_soap', 'strawberry'],
+    GameLevel.level8: [
+      'broccoli',
+      'safe_vest',
+      'safe_seatbelt',
+      'toothbrush',
+      'clean_sponge',
+    ],
+    GameLevel.level9: ['apple', 'banana', 'strawberry', 'shampoo', 'safe_helmet'],
+    GameLevel.level10: [
+      'carrot',
+      'broccoli',
+      'good_soap',
+      'safe_vest',
+      'safe_first_aid_kit',
+    ],
   };
   static final Map<GameLevel, List<String>> _badItemsByLevel = {
     GameLevel.level1: ['bad_donut', 'bad_fries', 'bad_pizza', 'bad_candy'],
     GameLevel.level2: ['dirty_sock', 'germ', 'dirty_tissue', 'slime_blob'],
-    GameLevel.level3: ['danger_fire', 'danger_electrical_cable', 'danger_sharp_scissors', 'danger_jagged_glass'],
+    GameLevel.level3: [
+      'danger_fire',
+      'danger_electrical_cable',
+      'danger_sharp_scissors',
+      'danger_jagged_glass',
+    ],
+    GameLevel.level4: ['bad_rock', 'bad_shoe', 'bad_soap', 'dirty_tissue', 'germ'],
+    GameLevel.level5: [
+      'danger_fire',
+      'danger_sharp_scissors',
+      'bad_pizza',
+      'bad_donut',
+      'dirty_sock',
+    ],
+    GameLevel.level6: ['bad_candy', 'bad_fries', 'bad_rock', 'slime_blob', 'germ'],
+    GameLevel.level7: [
+      'danger_jagged_glass',
+      'danger_electrical_cable',
+      'bad_shoe',
+      'dirty_tissue',
+      'bad_soap',
+    ],
+    GameLevel.level8: ['bad_pizza', 'bad_donut', 'danger_fire', 'slime_blob', 'bad_candy'],
+    GameLevel.level9: [
+      'danger_sharp_scissors',
+      'danger_jagged_glass',
+      'bad_fries',
+      'germ',
+      'dirty_sock',
+    ],
+    GameLevel.level10: [
+      'danger_fire',
+      'danger_electrical_cable',
+      'danger_sharp_scissors',
+      'bad_rock',
+      'bad_shoe',
+    ],
   };
 
   List<LevelObjective> get _objectives => _objectiveEngine.objectives;
@@ -107,6 +202,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
     await loadCustomizationProgress();
     _objectiveEngine.resetForLevel(selectedLevel);
+    _runTimeRemainingSeconds = selectedLevel.timeLimitSeconds.toDouble();
     await _applySelectedMonster();
     await _applyLevelTheme(selectedLevel);
     await _audioController.init();
@@ -126,14 +222,20 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (!isStarted || isGameOver || isPaused || isTransitioning) return;
 
     survivalTime += dt;
-    if (_spawnController.tick(dt)) {
+    _runTimeRemainingSeconds = max(0, _runTimeRemainingSeconds - dt);
+    _freezeTimeRemainingSeconds = max(0, _freezeTimeRemainingSeconds - dt);
+    if (_runTimeRemainingSeconds <= 0) {
+      triggerGameOver(title: 'Time Up');
+      return;
+    }
+    _refreshObjectiveHud();
+    if (_spawnController.tick(dt * selectedLevel.spawnRateMultiplier)) {
       spawnRandomItem();
     }
   }
 
   void spawnRandomItem() {
-    final random = Random();
-    final isGood = random.nextDouble() < goodItemChance;
+    final isGood = _spawnRandom.nextDouble() < goodItemChance;
     final goodList = _goodItemsByLevel[selectedLevel]!;
     final badList = _badItemsByLevel[selectedLevel]!;
     if (goodList.isEmpty && badList.isEmpty) {
@@ -144,18 +246,20 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     final canSpawnBad = badList.isNotEmpty;
     final spawnGood = canSpawnGood && (!canSpawnBad || isGood);
     final itemType = spawnGood
-        ? goodList[random.nextInt(goodList.length)]
-        : badList[random.nextInt(badList.length)];
+        ? goodList[_spawnRandom.nextInt(goodList.length)]
+        : badList[_spawnRandom.nextInt(badList.length)];
+    final modifier = _rollModifier(spawnGood: spawnGood);
 
     final item = FallingItem(
       itemType: itemType,
       isGood: spawnGood,
+      modifier: modifier,
       onDropped: handleItemDropped,
       onMissed: handleItemMissed,
       onDragMoved: handleItemDragMoved,
-      fallSpeed: _spawnController.currentFallSpeed,
+      fallSpeed: _spawnController.currentFallSpeed * selectedLevel.fallSpeedMultiplier,
     )
-      ..position = Vector2(random.nextDouble() * (size.x - 90) + 45, -50)
+      ..position = Vector2(_spawnRandom.nextDouble() * (size.x - 90) + 45, -50)
       ..anchor = Anchor.center;
     add(item);
   }
@@ -169,7 +273,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     final onTrashBin =
         _trashBinDropRect().contains(Offset(dropPosition.x, dropPosition.y));
 
-    if (item.isGood && onMonster) {
+    if (item.isEffectivelyGood && onMonster) {
       var bumped = _objectiveEngine.registerGoodFeed();
       bumped ??= _objectiveEngine.syncComboProgress();
       if (_objectiveEngine.goodStreak >= 3) {
@@ -195,6 +299,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
         monster.showHappy();
       }
       _refreshObjectiveHud(bumpedObjective: bumped);
+      _applyModifierOnSuccessfulDrop(item, dropPosition);
       _checkLevelCompletion();
       add(
         TapBurst(
@@ -206,11 +311,12 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
           spreadSpeed: 180,
         ),
       );
-    } else if (!item.isGood && onTrashBin) {
+    } else if (!item.isEffectivelyGood && onTrashBin) {
       var bumped = _objectiveEngine.registerJunkThrow();
       bumped ??= _objectiveEngine.syncComboProgress();
       monster.showHappy();
       _refreshObjectiveHud(bumpedObjective: bumped);
+      _applyModifierOnSuccessfulDrop(item, dropPosition);
       _checkLevelCompletion();
       add(
         TapBurst(
@@ -243,7 +349,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   void handleItemDragMoved(FallingItem item, Vector2 position) {
     if (isGameOver || isTransitioning) return;
-    if (!item.isGood) {
+    if (!item.isEffectivelyGood) {
       final overTrashBin =
           _trashBinDropRect().contains(Offset(position.x, position.y));
       _setTrashBinActive(overTrashBin);
@@ -293,14 +399,14 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     onLevelCompleted?.call(result);
   }
 
-  void triggerGameOver() {
+  void triggerGameOver({String title = 'Level Failed'}) {
     if (isGameOver) return;
     isGameOver = true;
     isPaused = false;
     monster.showGameOver();
     lastRunCoinsEarned = 0;
     _refreshObjectiveHud();
-    gameOverDisplay.showLevelFailed(_objectives);
+    gameOverDisplay.showLevelFailed(_objectives, title: title);
     _audioController.pause();
   }
 
@@ -321,6 +427,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     isPaused = false;
     isTransitioning = false;
     survivalTime = 0;
+    _runTimeRemainingSeconds = selectedLevel.timeLimitSeconds.toDouble();
+    _freezeTimeRemainingSeconds = 0;
     _spawnController.reset();
     _objectiveEngine.resetForLevel(selectedLevel);
 
@@ -386,8 +494,88 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       gold: totalCoins,
       level: selectedLevel,
       objectives: _objectives,
+      timeLeftSeconds: timeRemainingSeconds,
       bumpedObjective: bumpedObjective,
     );
+  }
+
+  ItemModifier _rollModifier({required bool spawnGood}) {
+    if (!spawnGood) return ItemModifier.none;
+    final r = _spawnRandom.nextDouble();
+    final bombCutoff = selectedLevel.bombChance;
+    final freezeCutoff = bombCutoff + selectedLevel.freezeChance;
+    final fakeCutoff = freezeCutoff + selectedLevel.fakeChance;
+    if (r < bombCutoff) return ItemModifier.bomb;
+    if (r < freezeCutoff) return ItemModifier.freeze;
+    if (r < fakeCutoff) return ItemModifier.fake;
+    return ItemModifier.none;
+  }
+
+  void _applyModifierOnSuccessfulDrop(FallingItem item, Vector2 dropPosition) {
+    switch (item.modifier) {
+      case ItemModifier.freeze:
+        _freezeTimeRemainingSeconds = _freezeDurationSeconds;
+        add(
+          TapBurst(
+            position: dropPosition,
+            baseColor: const Color(0xFF4FC3F7),
+            particleCount: 22,
+            particleSize: 9,
+            lifetime: 0.45,
+            spreadSpeed: 160,
+          ),
+        );
+        break;
+      case ItemModifier.bomb:
+        _triggerBombVacuum(item, dropPosition);
+        break;
+      case ItemModifier.fake:
+      case ItemModifier.none:
+        break;
+    }
+  }
+
+  void _triggerBombVacuum(FallingItem sourceItem, Vector2 sourcePosition) {
+    final activeItems = children.whereType<FallingItem>().toList();
+    for (final active in activeItems) {
+      if (identical(active, sourceItem)) continue;
+      if (active.isRemoving) continue;
+      final effectiveGood = active.isEffectivelyGood;
+      ObjectiveType? bumped;
+      if (effectiveGood) {
+        bumped = _objectiveEngine.registerGoodFeed();
+      } else {
+        bumped = _objectiveEngine.registerJunkThrow();
+      }
+      bumped ??= _objectiveEngine.syncComboProgress();
+      if (bumped != null) {
+        _refreshObjectiveHud(bumpedObjective: bumped);
+      }
+      active.removeFromParent();
+      add(
+        TapBurst(
+          position: active.position.clone(),
+          baseColor: effectiveGood
+              ? const Color(0xFFFFD54F)
+              : const Color(0xFF66BB6A),
+          particleCount: 10,
+          particleSize: 7,
+          lifetime: 0.28,
+          spreadSpeed: 160,
+        ),
+      );
+    }
+    add(
+      TapBurst(
+        position: sourcePosition,
+        baseColor: const Color(0xFFFFB74D),
+        particleCount: 32,
+        particleSize: 11,
+        lifetime: 0.55,
+        spreadSpeed: 230,
+      ),
+    );
+    _checkLevelCompletion();
   }
 
   void _triggerScreenShake() {
@@ -633,6 +821,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       restartGame();
     } else if (isLoaded) {
       _objectiveEngine.resetForLevel(selectedLevel);
+      _runTimeRemainingSeconds = selectedLevel.timeLimitSeconds.toDouble();
+      _freezeTimeRemainingSeconds = 0;
       await _applyLevelTheme(selectedLevel);
       _refreshObjectiveHud();
     }

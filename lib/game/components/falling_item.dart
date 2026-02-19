@@ -1,9 +1,17 @@
 part of '../../main.dart';
 
+enum ItemModifier {
+  none,
+  freeze,
+  fake,
+  bomb,
+}
+
 class FallingItem extends SpriteComponent
     with DragCallbacks, HasGameReference<MonsterTapGame> {
   final String itemType;
   final bool isGood;
+  final ItemModifier modifier;
   final Function(FallingItem, Vector2) onDropped;
   final Function(FallingItem) onMissed;
   final Function(FallingItem, Vector2)? onDragMoved;
@@ -23,13 +31,19 @@ class FallingItem extends SpriteComponent
     ..color = const Color(0x70C62828)
     ..style = PaintingStyle.stroke
     ..strokeWidth = 1.5;
+  static final Paint _freezePaint = Paint()..color = const Color(0xFF4FC3F7);
+  static final Paint _fakePaint = Paint()..color = const Color(0xFFCE93D8);
+  static final Paint _bombPaint = Paint()..color = const Color(0xFFFFB74D);
   bool _isDragging = false;
   bool _isHandled = false;
   Vector2? _lastPointerCanvasPosition;
 
+  bool get isEffectivelyGood => modifier != ItemModifier.fake && isGood;
+
   FallingItem({
     required this.itemType,
     required this.isGood,
+    this.modifier = ItemModifier.none,
     required this.onDropped,
     required this.onMissed,
     this.onDragMoved,
@@ -46,7 +60,7 @@ class FallingItem extends SpriteComponent
   void update(double dt) {
     super.update(dt);
     if (!_isDragging) {
-      position.y += fallSpeed * dt;
+      position.y += fallSpeed * dt * game.fallSpeedMultiplier;
     }
 
     // Miss only when item fully leaves gameplay from the bottom while not dragging.
@@ -115,6 +129,44 @@ class FallingItem extends SpriteComponent
       canvas.drawRRect(halo, _badGlowSoftPaint);
       canvas.drawRRect(core, _badGlowCorePaint);
     }
+    _renderModifierBadge(canvas);
     super.render(canvas);
+  }
+
+  void _renderModifierBadge(Canvas canvas) {
+    if (modifier == ItemModifier.none) return;
+
+    final center = Offset(size.x * 0.83, size.y * 0.18);
+    Paint paint;
+    String label;
+    switch (modifier) {
+      case ItemModifier.freeze:
+        paint = _freezePaint;
+        label = 'F';
+        break;
+      case ItemModifier.fake:
+        paint = _fakePaint;
+        label = '?';
+        break;
+      case ItemModifier.bomb:
+        paint = _bombPaint;
+        label = 'B';
+        break;
+      case ItemModifier.none:
+        return;
+    }
+    canvas.drawCircle(center, 14, paint);
+    final tp = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 15,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2));
   }
 }
