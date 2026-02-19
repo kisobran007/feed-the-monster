@@ -20,6 +20,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   int totalCoins = 0;
   int lastRunCoinsEarned = 0;
   int unlockedLevel = 1;
+  final Map<String, int> bestStarsByLevel = <String, int>{};
   String selectedMonsterId = MonsterCatalog.defaultMonsterId;
   final Set<String> unlockedMonsterIds = <String>{};
   GameLevel selectedLevel = GameLevel.level1;
@@ -30,7 +31,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   bool isStarted = false;
   bool isPaused = false;
   bool isTransitioning = false;
-  bool _runRewardGranted = false;
+  void Function(LevelCompletionResult result)? onLevelCompleted;
+
+  static const int _twoStarMistakeThreshold = 2;
 
   double survivalTime = 0;
   double _shakeTime = 0;
@@ -52,7 +55,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   bool get hasNextUnlockedLevel {
     final next = GameLevel.fromLevelNumber(selectedLevel.levelNumber + 1);
     if (next == null) return false;
-    return unlockedLevel >= next.levelNumber;
+    return isLevelUnlocked(next);
   }
 
   static final Map<GameLevel, String> _backgroundByLevel = {
@@ -281,12 +284,13 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     isGameOver = true;
     isPaused = false;
     monster.showHappy();
-    _unlockNextLevelIfNeeded();
-    _awardRunCoins(completed: true);
+    final result = _recordLevelCompletion();
+    lastRunCoinsEarned = result.earnedCoins;
     _refreshObjectiveHud();
-    gameOverDisplay.showLevelCompleted(_objectives);
+    gameOverDisplay.hide();
     _saveCustomizationProgress();
     _audioController.pause();
+    onLevelCompleted?.call(result);
   }
 
   void triggerGameOver() {
@@ -294,7 +298,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     isGameOver = true;
     isPaused = false;
     monster.showGameOver();
-    _awardRunCoins(completed: false);
+    lastRunCoinsEarned = 0;
     _refreshObjectiveHud();
     gameOverDisplay.showLevelFailed(_objectives);
     _audioController.pause();
@@ -316,7 +320,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     isGameOver = false;
     isPaused = false;
     isTransitioning = false;
-    _runRewardGranted = false;
     survivalTime = 0;
     _spawnController.reset();
     _objectiveEngine.resetForLevel(selectedLevel);
@@ -354,12 +357,21 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     _audioController.resume();
   }
 
-  void _unlockNextLevelIfNeeded() {
-    final nextLevelNumber = selectedLevel.levelNumber + 1;
-    final nextLevel = GameLevel.fromLevelNumber(nextLevelNumber);
-    if (nextLevel == null) return;
-    if (unlockedLevel >= nextLevelNumber) return;
-    unlockedLevel = nextLevelNumber;
+  void _recalculateUnlockedLevel() {
+    var reachableLevel = 1;
+    for (var levelNumber = 2;
+        levelNumber <= GameLevel.values.length;
+        levelNumber++) {
+      final previousLevel = GameLevel.fromLevelNumber(levelNumber - 1);
+      if (previousLevel == null) continue;
+      final previousStars = bestStarsForLevel(previousLevel);
+      if (previousStars >= 1) {
+        reachableLevel = levelNumber;
+      } else {
+        break;
+      }
+    }
+    unlockedLevel = reachableLevel;
   }
 
   Future<void> _applyLevelTheme(GameLevel level) async {
@@ -400,6 +412,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     final data = await _progressRepository.load();
     totalCoins = data.totalCoins;
     unlockedLevel = data.unlockedLevel;
+    bestStarsByLevel
+      ..clear()
+      ..addAll(data.bestStarsByLevel);
     selectedLevel = data.selectedLevel;
     selectedMonsterId = data.selectedMonsterId;
     unlockedMonsterIds
@@ -411,6 +426,10 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     equippedAccessoryByTarget
       ..clear()
       ..addAll(data.equippedAccessoryByTarget);
+    _recalculateUnlockedLevel();
+    if (!isLevelUnlocked(selectedLevel)) {
+      selectedLevel = GameLevel.level1;
+    }
 
     if (isLoaded) {
       _objectiveEngine.resetForLevel(selectedLevel);
@@ -426,6 +445,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       totalCoins: totalCoins,
       selectedLevel: selectedLevel,
       unlockedLevel: unlockedLevel,
+      bestStarsByLevel: bestStarsByLevel,
       selectedMonsterId: selectedMonsterId,
       unlockedMonsterIds: unlockedMonsterIds,
       unlockedAccessoryIds: unlockedAccessoryIds,
@@ -453,22 +473,53 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     monster.setHatAccessoryAssetPath(hatItem?.assetPath);
   }
 
-  int _calculateCoinsForRun({required bool completed}) {
-    final completedObjectives = _objectiveEngine.completedObjectivesCount;
-    if (completed) {
-      return 12 + (selectedLevel.levelNumber * 4) + (completedObjectives * 3);
-    }
-    return max(1, completedObjectives * 2);
+  int bestStarsForLevel(GameLevel level) {
+    return (bestStarsByLevel[level.id] ?? 0).clamp(0, 3).toInt();
   }
 
-  void _awardRunCoins({required bool completed}) {
-    if (_runRewardGranted) return;
-    _runRewardGranted = true;
-    final earned = _calculateCoinsForRun(completed: completed);
-    lastRunCoinsEarned = earned;
-    if (earned <= 0) return;
-    totalCoins += earned;
-    _saveCustomizationProgress();
+  int _starsFromMistakes(int currentMistakes) {
+    if (currentMistakes == 0) return 3;
+    if (currentMistakes <= _twoStarMistakeThreshold) return 2;
+    return 1;
+  }
+
+  int _coinsForStars(int stars) {
+    final normalizedStars = stars.clamp(0, 3).toInt();
+    switch (normalizedStars) {
+      case 1:
+        return 30;
+      case 2:
+        return 60;
+      case 3:
+        return 100;
+      default:
+        return 0;
+    }
+  }
+
+  LevelCompletionResult _recordLevelCompletion() {
+    final previousBestStars = bestStarsForLevel(selectedLevel);
+    final earnedStars = _starsFromMistakes(mistakes);
+    final bestStarsAfterRun = max(previousBestStars, earnedStars);
+    bestStarsByLevel[selectedLevel.id] = bestStarsAfterRun;
+
+    final previousBestCoins = _coinsForStars(previousBestStars);
+    final nextBestCoins = _coinsForStars(bestStarsAfterRun);
+    final coinDelta = max(0, nextBestCoins - previousBestCoins);
+    if (coinDelta > 0) {
+      totalCoins += coinDelta;
+    }
+    _recalculateUnlockedLevel();
+
+    return LevelCompletionResult(
+      level: selectedLevel,
+      mistakes: mistakes,
+      earnedStars: earnedStars,
+      previousBestStars: previousBestStars,
+      bestStarsAfterRun: bestStarsAfterRun,
+      earnedCoins: coinDelta,
+      totalCoinsAfterRun: totalCoins,
+    );
   }
 
   Future<bool> unlockWorld1Hat() async {
@@ -568,7 +619,10 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   List<GameLevel> get availableLevels => GameLevel.values;
 
   bool isLevelUnlocked(GameLevel level) {
-    return level.levelNumber <= unlockedLevel;
+    if (level.levelNumber <= 1) return true;
+    final previous = GameLevel.fromLevelNumber(level.levelNumber - 1);
+    if (previous == null) return false;
+    return bestStarsForLevel(previous) >= 1;
   }
 
   Future<void> selectLevel(GameLevel level) async {

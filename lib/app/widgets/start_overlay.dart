@@ -2,13 +2,13 @@ part of '../../main.dart';
 
 class StartOverlay extends StatelessWidget {
   final VoidCallback onStart;
-  final VoidCallback onOpenMonster;
+  final VoidCallback onOpenShop;
   final VoidCallback onOpenLevels;
 
   const StartOverlay({
     super.key,
     required this.onStart,
-    required this.onOpenMonster,
+    required this.onOpenShop,
     required this.onOpenLevels,
   });
 
@@ -52,7 +52,7 @@ class StartOverlay extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             ElevatedButton(
-              onPressed: onOpenMonster,
+              onPressed: onOpenShop,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF42A5F5),
                 foregroundColor: Colors.white,
@@ -62,7 +62,7 @@ class StartOverlay extends StatelessWidget {
                 ),
               ),
               child: const Text(
-                'My Monster',
+                'Shop',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
             ),

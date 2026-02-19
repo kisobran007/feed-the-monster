@@ -60,7 +60,9 @@ class Monster extends SpriteComponent with HasGameReference<MonsterTapGame> {
   }
 
   String _skinAssetPath(String state) {
-    return 'characters/$monsterId/$state.png';
+    final assetFolder =
+        MonsterCatalog.byId(monsterId)?.assetFolder ?? MonsterCatalog.monsterMainId;
+    return 'characters/$assetFolder/$state.png';
   }
 
   @override

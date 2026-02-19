@@ -3,14 +3,14 @@ part of '../../main.dart';
 class PauseOverlay extends StatelessWidget {
   final VoidCallback onResume;
   final VoidCallback onRestart;
-  final Future<void> Function() onOpenMonster;
+  final Future<void> Function() onOpenShop;
   final Future<void> Function() onOpenLevels;
 
   const PauseOverlay({
     super.key,
     required this.onResume,
     required this.onRestart,
-    required this.onOpenMonster,
+    required this.onOpenShop,
     required this.onOpenLevels,
   });
 
@@ -70,7 +70,7 @@ class PauseOverlay extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             ElevatedButton(
-              onPressed: onOpenMonster,
+              onPressed: onOpenShop,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF42A5F5),
                 foregroundColor: Colors.white,
@@ -80,7 +80,7 @@ class PauseOverlay extends StatelessWidget {
                 ),
               ),
               child: const Text(
-                'My Monster',
+                'Shop',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
             ),

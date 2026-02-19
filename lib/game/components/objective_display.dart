@@ -63,7 +63,7 @@ class ObjectiveDisplay extends PositionComponent
 
     _paintText(
       canvas,
-      text: '${_level.label}    Gold: $_gold',
+      text: '${_level.label}    Coins: $_gold',
       offset: const Offset(14, 12),
       style: const TextStyle(
         color: Color(0xFFFFE082),
