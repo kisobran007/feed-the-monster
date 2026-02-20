@@ -2,6 +2,8 @@ part of '../../main.dart';
 
 enum AccessorySlot {
   hat,
+  shoes,
+  outfit,
 }
 
 class AccessoryItem {
