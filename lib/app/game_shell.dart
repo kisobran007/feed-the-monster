@@ -119,6 +119,10 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
+  Future<void> _exitApp() async {
+    await SystemNavigator.pop();
+  }
+
   Future<void> _handleLevelCompleted(LevelCompletionResult result) async {
     if (!mounted) return;
     await showLevelCompleteDialog(
@@ -149,6 +153,7 @@ class _GameScreenState extends State<GameScreen> {
             onStart: _startGame,
             onOpenShop: _openShop,
             onOpenLevels: _openLevelsMenu,
+            onExit: _exitApp,
           ),
         if (hasStarted)
           Positioned(
@@ -174,6 +179,7 @@ class _GameScreenState extends State<GameScreen> {
             onRestart: _restartFromMenu,
             onOpenShop: _openShopFromPause,
             onOpenLevels: _openLevelsMenuFromPause,
+            onExit: _exitApp,
           ),
       ],
     );

@@ -387,6 +387,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   void completeLevel() {
     if (isGameOver || isTransitioning) return;
+    _clearActiveFallingItems();
+    _setTrashBinActive(false);
     isGameOver = true;
     isPaused = false;
     monster.showHappy();
@@ -401,6 +403,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   void triggerGameOver({String title = 'Level Failed'}) {
     if (isGameOver) return;
+    _clearActiveFallingItems();
+    _setTrashBinActive(false);
     isGameOver = true;
     isPaused = false;
     monster.showGameOver();
@@ -944,5 +948,13 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (_trashBinActive == active) return;
     _trashBinActive = active;
     trashBin.sprite = active ? _trashBinActiveSprite : _trashBinIdleSprite;
+  }
+
+  void _clearActiveFallingItems() {
+    final activeItems = children.whereType<FallingItem>().toList();
+    for (final item in activeItems) {
+      if (item.isRemoving) continue;
+      item.removeFromParent();
+    }
   }
 }
