@@ -139,11 +139,11 @@ class GameProgressRepository {
     final legacyUnlocked = prefs.getBool(_world1HatUnlockedKey) ?? false;
     final legacyEquipped = prefs.getBool(_world1HatEquippedKey) ?? false;
     if (legacyUnlocked) {
-      unlockedAccessoryIds.add(AccessoryCatalog.world1PartyHatId);
+      unlockedAccessoryIds.add(AccessoryCatalog.legacyHatMigrationTargetId);
       if (legacyEquipped) {
         equippedAccessoryByTarget[
                 '${GameLevel.level1.id}:${AccessoryCatalog.monsterMainId}'] =
-            AccessoryCatalog.world1PartyHatId;
+            AccessoryCatalog.legacyHatMigrationTargetId;
       }
     }
 

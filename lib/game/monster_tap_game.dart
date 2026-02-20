@@ -718,10 +718,10 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   Future<bool> unlockWorld1Hat() async {
-    final ok = await unlockAccessory(AccessoryCatalog.world1PartyHatId);
+    final ok = await unlockAccessory(AccessoryCatalog.legacyHatMigrationTargetId);
     if (!ok) return false;
     await setAccessoryEquipped(
-      AccessoryCatalog.world1PartyHatId,
+      AccessoryCatalog.legacyHatMigrationTargetId,
       level: GameLevel.level1,
       monsterId: _legacyMonsterMainId,
     );
@@ -732,7 +732,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (equipped) {
       if (!isWorld1HatUnlocked) return;
       await setAccessoryEquipped(
-        AccessoryCatalog.world1PartyHatId,
+        AccessoryCatalog.legacyHatMigrationTargetId,
         level: GameLevel.level1,
         monsterId: _legacyMonsterMainId,
       );
@@ -804,9 +804,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   bool get isWorld1HatUnlocked =>
-      isAccessoryUnlocked(AccessoryCatalog.world1PartyHatId);
+      isAccessoryUnlocked(AccessoryCatalog.legacyHatMigrationTargetId);
   bool get isWorld1HatEquipped => isAccessoryEquipped(
-        accessoryId: AccessoryCatalog.world1PartyHatId,
+        accessoryId: AccessoryCatalog.legacyHatMigrationTargetId,
         level: GameLevel.level1,
         monsterId: _legacyMonsterMainId,
       );
