@@ -34,32 +34,14 @@ class AccessoryCatalog {
 
   static final List<AccessoryItem> items = [
     AccessoryItem(
-      id: world1PartyHatId,
-      label: 'Party Hat',
+      id: world1WizardHatId,
+      label: 'Cute Beanie Hat',
       monsterId: monsterMainId,
       level: GameLevel.level1,
       slot: AccessorySlot.hat,
       cost: 150,
-      assetPath: 'characters/monster_main/accessories/hat_party.png',
-    ),
-    AccessoryItem(
-      id: world1CrownHatId,
-      label: 'Crown Hat',
-      monsterId: monsterMainId,
-      level: GameLevel.level1,
-      slot: AccessorySlot.hat,
-      cost: 250,
-      assetPath: 'characters/monster_main/accessories/hat_crown.png',
-    ),
-    AccessoryItem(
-      id: world1WizardHatId,
-      label: 'Wizard Hat',
-      monsterId: monsterMainId,
-      level: GameLevel.level1,
-      slot: AccessorySlot.hat,
-      cost: 400,
-      assetPath: 'characters/monster_main/accessories/hat_wizard.png',
-    ),
+      assetPath: 'characters/monster_main/accessories/cute_beanie_hat.png',
+    )
   ];
 
   static AccessoryItem? byId(String id) {

@@ -53,6 +53,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static const double monsterAreaRatio = 0.28;
   static const double _monsterXRatio = 0.22;
   static const double _trashBinXRatio = 0.85;
+  static const double _monsterDesiredAreaYRatio = 0.6;
+  static const double _monsterMaxVisualSize = 252;
+  static const double _monsterBottomPadding = 2;
 
   double get gameplayBottomY => size.y * (1 - monsterAreaRatio);
   double get monsterAreaTopY => gameplayBottomY;
@@ -180,7 +183,7 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     monster = Monster(monsterId: selectedMonsterId)
       ..position = Vector2(
         size.x * _monsterXRatio,
-        monsterAreaTopY + (monsterAreaHeight * 0.6),
+        _computeMonsterCenterY(),
       )
       ..anchor = Anchor.center;
     add(monster);
@@ -913,14 +916,15 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
     monster.position = Vector2(
       size.x * _monsterXRatio,
-      monsterAreaTopY + (monsterAreaHeight * 0.6),
+      _computeMonsterCenterY(),
     );
+    final sharedCharacterSize = Vector2.all(monster.size.x);
     trashBin
       ..position = Vector2(
         size.x * _trashBinXRatio,
-        monsterAreaTopY + (monsterAreaHeight * 0.62),
+        monster.position.y,
       )
-      ..size = Vector2(size.x * 0.19, size.x * 0.19);
+      ..size = sharedCharacterSize;
     objectiveDisplay.position = Vector2(20, 24);
 
     gameOverDisplay
@@ -948,6 +952,16 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     if (_trashBinActive == active) return;
     _trashBinActive = active;
     trashBin.sprite = active ? _trashBinActiveSprite : _trashBinIdleSprite;
+  }
+
+  double _computeMonsterCenterY() {
+    final desiredY = monsterAreaTopY + (monsterAreaHeight * _monsterDesiredAreaYRatio);
+    final maxSafeY = size.y - (_monsterMaxVisualSize * 0.5) - _monsterBottomPadding;
+    const minSafeY = (_monsterMaxVisualSize * 0.5) + 4;
+    if (minSafeY >= maxSafeY) {
+      return (size.y * 0.5).toDouble();
+    }
+    return desiredY.clamp(minSafeY, maxSafeY).toDouble();
   }
 
   void _clearActiveFallingItems() {

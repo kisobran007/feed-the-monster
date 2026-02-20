@@ -37,13 +37,13 @@ class MonsterCatalog {
     MonsterCharacter(
       id: neonMonsterId,
       label: 'Neon Monster',
-      assetFolder: monsterMainId,
+      assetFolder: neonMonsterId,
       unlockCost: 500,
     ),
     MonsterCharacter(
       id: royalMonsterId,
       label: 'Royal Monster',
-      assetFolder: monsterBuddyId,
+      assetFolder: royalMonsterId,
       unlockCost: 800,
     ),
   ];

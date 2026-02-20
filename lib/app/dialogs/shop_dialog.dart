@@ -46,10 +46,6 @@ Future<void> showShopDialog(
             level: GameLevel.level1,
             monsterId: selectedSkin.id,
           );
-          const availableSlots = AccessorySlot.values;
-          final accessories = accessoriesForSkin
-              .where((item) => item.slot == selectedSlot)
-              .toList();
           final equippedAccessoryId = game.equippedAccessoryIdForTarget(
             level: GameLevel.level1,
             monsterId: selectedSkin.id,
@@ -57,6 +53,17 @@ Future<void> showShopDialog(
           final equippedAccessory = equippedAccessoryId == null
               ? null
               : AccessoryCatalog.byId(equippedAccessoryId);
+
+          // Initialize preview from the actually equipped item instead of
+          // defaulting to the first accessory in the list.
+          if (selectedAccessoryId == null && equippedAccessory != null) {
+            selectedSlot = equippedAccessory.slot;
+          }
+
+          const availableSlots = AccessorySlot.values;
+          final accessories = accessoriesForSkin
+              .where((item) => item.slot == selectedSlot)
+              .toList();
           if (!availableSlots.any((slot) => slot == selectedSlot)) {
             selectedSlot = AccessorySlot.hat;
           }
@@ -68,9 +75,6 @@ Future<void> showShopDialog(
               selectedAccessoryId = equippedAccessory.id;
             } else {
               selectedAccessoryId = null;
-            }
-            if (selectedAccessoryId == null && accessories.isNotEmpty) {
-              selectedAccessoryId = accessories.first.id;
             }
           }
           final selectedAccessory = selectedAccessoryId == null
@@ -137,17 +141,12 @@ Future<void> showShopDialog(
                             ),
                             if (showAccessoryPreview &&
                                 selectedAccessoryPreviewPath != null)
-                              Positioned(
-                                top: 10,
-                                child: SizedBox(
-                                  width: 140,
-                                  height: 82,
-                                  child: Opacity(
-                                    opacity: 0.95,
-                                    child: Image.asset(
-                                      selectedAccessoryPreviewPath,
-                                      fit: BoxFit.contain,
-                                    ),
+                              Positioned.fill(
+                                child: Opacity(
+                                  opacity: 0.95,
+                                  child: Image.asset(
+                                    selectedAccessoryPreviewPath,
+                                    fit: BoxFit.contain,
                                   ),
                                 ),
                               ),
@@ -496,6 +495,7 @@ Future<void> showShopDialog(
                                   await game.loadCustomizationProgress();
                                   setDialogState(() {
                                     coins = game.totalCoins;
+                                    selectedAccessoryId = null;
                                   });
                                 },
                                 child: const Text('Remove Equipped'),

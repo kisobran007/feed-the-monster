@@ -1,1 +1,3 @@
-Add hats, badges, and other accessory PNG files for world1 monster here.
+HATS:
+- Use canvas (1536x1024) same as monster character
+- Keep the alpha clean (without the large glow underneath).
