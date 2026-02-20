@@ -1,6 +1,6 @@
 {
-    "name": "monster_tap_game",
-    "short_name": "monster_tap_game",
+    "name": "Monster Munch",
+    "short_name": "Monster Munch",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

@@ -1,4 +1,4 @@
-# Monster Tap Game Setup
+# Monster Munch Setup
 
 ## 1. Requirements
 

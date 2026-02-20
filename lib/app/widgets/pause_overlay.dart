@@ -24,7 +24,7 @@ class PauseOverlay extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Monster Tap Game',
+              'Monster Munch',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 42,

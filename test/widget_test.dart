@@ -6,7 +6,7 @@ void main() {
   testWidgets('shows start overlay', (WidgetTester tester) async {
     await tester.pumpWidget(const GameApp());
 
-    expect(find.text('Monster Tap Game'), findsOneWidget);
+    expect(find.text('Monster Munch'), findsOneWidget);
     expect(find.text('Start The Game'), findsOneWidget);
   });
 }
