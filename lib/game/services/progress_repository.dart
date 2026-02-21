@@ -3,6 +3,7 @@ part of '../../main.dart';
 class GameProgressData {
   final int totalCoins;
   final int unlockedLevel;
+  final Map<String, int> bestStarsByLevel;
   final GameLevel selectedLevel;
   final String selectedMonsterId;
   final Set<String> unlockedMonsterIds;
@@ -12,6 +13,7 @@ class GameProgressData {
   const GameProgressData({
     required this.totalCoins,
     required this.unlockedLevel,
+    required this.bestStarsByLevel,
     required this.selectedLevel,
     required this.selectedMonsterId,
     required this.unlockedMonsterIds,
@@ -25,6 +27,7 @@ class GameProgressRepository {
   static const String _selectedLevelKey = 'selected_level';
   static const String _unlockedLevelKey = 'unlockedLevel';
   static const String _legacyUnlockedLevelIdsKey = 'unlocked_level_ids';
+  static const String _bestStarsByLevelKey = 'best_stars_by_level';
   static const String _unlockedAccessoryIdsKey = 'unlocked_accessory_ids';
   static const String _equippedAccessoryByTargetKey =
       'equipped_accessory_by_target';
@@ -37,6 +40,18 @@ class GameProgressRepository {
     final prefs = await SharedPreferences.getInstance();
 
     final totalCoins = prefs.getInt(_coinsKey) ?? 0;
+    final bestStarsByLevel = <String, int>{};
+    final encodedStars = prefs.getString(_bestStarsByLevelKey);
+    if (encodedStars != null && encodedStars.isNotEmpty) {
+      final decoded = jsonDecode(encodedStars);
+      if (decoded is Map<String, dynamic>) {
+        decoded.forEach((key, value) {
+          if (value is int) {
+            bestStarsByLevel[key] = value.clamp(0, 3).toInt();
+          }
+        });
+      }
+    }
 
     final persistedUnlockedLevel = prefs.getInt(_unlockedLevelKey);
     var unlockedLevel = max(1, persistedUnlockedLevel ?? 1);
@@ -53,6 +68,29 @@ class GameProgressRepository {
       }
       unlockedLevel = max(unlockedLevel, legacyMax);
     }
+
+    if (bestStarsByLevel.isEmpty && unlockedLevel > 1) {
+      for (final level in GameLevel.values) {
+        if (level.levelNumber < unlockedLevel) {
+          bestStarsByLevel[level.id] = 1;
+        }
+      }
+    }
+
+    var starsUnlockedLevel = 1;
+    for (var levelNumber = 2;
+        levelNumber <= GameLevel.values.length;
+        levelNumber++) {
+      final previous = GameLevel.fromLevelNumber(levelNumber - 1);
+      if (previous == null) continue;
+      final previousStars = bestStarsByLevel[previous.id] ?? 0;
+      if (previousStars >= 1) {
+        starsUnlockedLevel = levelNumber;
+      } else {
+        break;
+      }
+    }
+    unlockedLevel = max(unlockedLevel, starsUnlockedLevel);
 
     final persistedLevel = GameLevel.fromId(prefs.getString(_selectedLevelKey));
     final selectedLevel = persistedLevel != null &&
@@ -101,17 +139,18 @@ class GameProgressRepository {
     final legacyUnlocked = prefs.getBool(_world1HatUnlockedKey) ?? false;
     final legacyEquipped = prefs.getBool(_world1HatEquippedKey) ?? false;
     if (legacyUnlocked) {
-      unlockedAccessoryIds.add(AccessoryCatalog.world1PartyHatId);
+      unlockedAccessoryIds.add(AccessoryCatalog.legacyHatMigrationTargetId);
       if (legacyEquipped) {
         equippedAccessoryByTarget[
                 '${GameLevel.level1.id}:${AccessoryCatalog.monsterMainId}'] =
-            AccessoryCatalog.world1PartyHatId;
+            AccessoryCatalog.legacyHatMigrationTargetId;
       }
     }
 
     return GameProgressData(
       totalCoins: totalCoins,
       unlockedLevel: unlockedLevel,
+      bestStarsByLevel: bestStarsByLevel,
       selectedLevel: selectedLevel,
       selectedMonsterId: selectedMonsterId,
       unlockedMonsterIds: unlockedMonsterIds,
@@ -124,6 +163,7 @@ class GameProgressRepository {
     required int totalCoins,
     required GameLevel selectedLevel,
     required int unlockedLevel,
+    required Map<String, int> bestStarsByLevel,
     required String selectedMonsterId,
     required Set<String> unlockedMonsterIds,
     required Set<String> unlockedAccessoryIds,
@@ -135,6 +175,14 @@ class GameProgressRepository {
     await prefs.setInt(_coinsKey, totalCoins);
     await prefs.setString(_selectedLevelKey, selectedLevel.id);
     await prefs.setInt(_unlockedLevelKey, unlockedLevel);
+    await prefs.setString(
+      _bestStarsByLevelKey,
+      jsonEncode(
+        bestStarsByLevel.map(
+          (key, value) => MapEntry(key, value.clamp(0, 3).toInt()),
+        ),
+      ),
+    );
 
     final legacyUnlockedIds = GameLevel.values
         .where((level) => level.levelNumber <= unlockedLevel)

@@ -27,4 +27,6 @@ flutter:
     - assets/images/characters/monster_main/
     - assets/images/characters/monster_main/accessories/
     - assets/images/characters/monster_buddy/
+    - assets/images/characters/monster_neon/
+    - assets/images/characters/monster_royal/
     - assets/sounds/

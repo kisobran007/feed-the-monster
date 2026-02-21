@@ -62,11 +62,14 @@ class GameOverDisplay extends PositionComponent
         game.hasNextUnlockedLevel ? 'Tap to Continue' : 'Tap to Replay';
   }
 
-  void showLevelFailed(List<LevelObjective> objectives) {
+  void showLevelFailed(
+    List<LevelObjective> objectives, {
+    String title = 'Level Failed',
+  }) {
     isVisible = true;
     isCompletedState = false;
     _objectives = objectives.map((objective) => objective.clone()).toList();
-    titleText.text = 'Level Failed';
+    titleText.text = title;
     actionText.text = 'Tap to Restart';
   }
 

@@ -1,4 +1,4 @@
-# Monster Tap Game
+# Monster Munch
 
 Kid-friendly Flutter + Flame game where the player feeds a monster by swiping good items to the monster and bad items to the bin.
 

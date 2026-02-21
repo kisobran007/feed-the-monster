@@ -3,6 +3,7 @@ part of '../../main.dart';
 class ObjectiveDisplay extends PositionComponent
     with HasGameReference<MonsterTapGame> {
   int _gold = 0;
+  double _timeLeftSeconds = 0;
   GameLevel _level = GameLevel.level1;
   List<LevelObjective> _objectives = <LevelObjective>[];
   final Map<ObjectiveType, double> _pulseByType = <ObjectiveType, double>{};
@@ -12,11 +13,13 @@ class ObjectiveDisplay extends PositionComponent
     required int gold,
     required GameLevel level,
     required List<LevelObjective> objectives,
+    required double timeLeftSeconds,
     ObjectiveType? bumpedObjective,
   }) {
     _gold = gold;
     _level = level;
     _objectives = objectives;
+    _timeLeftSeconds = max(0, timeLeftSeconds);
     if (bumpedObjective != null) {
       _pulseByType[bumpedObjective] = 1;
     }
@@ -42,7 +45,7 @@ class ObjectiveDisplay extends PositionComponent
     super.render(canvas);
     final panelWidth = min(460.0, game.size.x * 0.9);
     const rowHeight = 34.0;
-    final panelHeight = 108.0 + (_objectives.length * rowHeight);
+    final panelHeight = 132.0 + (_objectives.length * rowHeight);
     size = Vector2(panelWidth, panelHeight);
 
     final panelRect = RRect.fromRectAndRadius(
@@ -63,7 +66,7 @@ class ObjectiveDisplay extends PositionComponent
 
     _paintText(
       canvas,
-      text: '${_level.label}    Gold: $_gold',
+      text: '${_level.label}    Coins: $_gold',
       offset: const Offset(14, 12),
       style: const TextStyle(
         color: Color(0xFFFFE082),
@@ -85,7 +88,20 @@ class ObjectiveDisplay extends PositionComponent
       ),
     );
 
-    var y = 78.0;
+    final timeInt = _timeLeftSeconds.ceil();
+    final isUrgent = timeInt <= 10;
+    _paintText(
+      canvas,
+      text: 'Time Left: ${timeInt}s',
+      offset: const Offset(14, 64),
+      style: TextStyle(
+        color: isUrgent ? const Color(0xFFFF8A80) : const Color(0xFFB3E5FC),
+        fontSize: 16,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+
+    var y = 102.0;
     for (final objective in _objectives) {
       final pulse = _pulseByType[objective.type] ?? 0;
       final completed = _isVisuallyCompleted(objective);

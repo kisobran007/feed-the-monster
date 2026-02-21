@@ -56,7 +56,7 @@ Future<void> showMonsterMenuDialog(
                 )
               : false;
           final monsterPath =
-              'assets/images/characters/${selectedMonster.id}/$previewState.png';
+              'assets/images/characters/${selectedMonster.assetFolder}/$previewState.png';
           final hatPath =
               selectedHat == null ? null : 'assets/images/${selectedHat.assetPath}';
 

@@ -1,0 +1,36 @@
+Create a 2D game accessory overlay PNG that fits my monster character exactly.
+
+Input I will provide:
+- A reference image of the monster character (front view).
+
+Goal:
+- Generate ONE accessory overlay image that can be composited directly on top of the monster.
+- The overlay must match the monster art style, perspective, proportions, and lighting.
+
+Technical requirements:
+- Output format: PNG with alpha transparency
+- Canvas size: EXACTLY the same as the monster image (do not crop)
+- Keep full-canvas alignment (do not shift canvas origin)
+- Background must be fully transparent
+- No watermark, no text
+
+Important composition rules:
+- Accessory only (no monster body parts unless explicitly requested)
+- If this is a hat:
+  - do NOT include face, body, ears, horns unless explicitly requested
+  - FRONT-ONLY shape: no visible inner cavity, no back-side underside
+  - brim must be a single visible front edge only
+  - no second lower ring/lip below the main brim
+- Keep details clean and readable at game scale
+- Avoid glow/fog/vignette outside the accessory shape
+- Keep edges crisp with natural anti-aliasing
+
+Style constraints:
+- Cute/cartoon/fantasy style matching the provided monster
+- Similar line quality, saturation, and softness as the character art
+
+Accessory request:
+- [WRITE HERE: e.g. pink winter hat with pom-pom and heart badge]
+
+Output:
+- Return exactly 1 final transparent PNG (same canvas size as input monster image)

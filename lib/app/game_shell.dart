@@ -31,6 +31,7 @@ class _GameScreenState extends State<GameScreen> {
   void initState() {
     super.initState();
     game = MonsterTapGame();
+    game.onLevelCompleted = _handleLevelCompleted;
   }
 
   void _startGame() {
@@ -70,8 +71,10 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
-  Future<void> _openMonsterMenu() async {
-    await showMonsterMenuDialog(context, game);
+  Future<void> _openShop() async {
+    await showShopDialog(context, game);
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _openLevelsMenu() async {
@@ -80,16 +83,25 @@ class _GameScreenState extends State<GameScreen> {
       game,
       onLevelApplied: () {
         if (!mounted) return;
-        setState(() {});
+        if (!hasStarted) {
+          game.startGame();
+        } else {
+          game.startNewGameFromMenu();
+        }
+        setState(() {
+          hasStarted = true;
+          isPaused = false;
+          isMenuOpen = false;
+        });
       },
     );
   }
 
-  Future<void> _openMonsterMenuFromPause() async {
+  Future<void> _openShopFromPause() async {
     setState(() {
       isMenuOpen = false;
     });
-    await _openMonsterMenu();
+    await _openShop();
     if (!mounted || !hasStarted || !isPaused) return;
     setState(() {
       isMenuOpen = true;
@@ -107,6 +119,30 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
+  Future<void> _exitApp() async {
+    await SystemNavigator.pop();
+  }
+
+  Future<void> _handleLevelCompleted(LevelCompletionResult result) async {
+    if (!mounted) return;
+    await showLevelCompleteDialog(
+      context,
+      result: result,
+      hasNextLevel: game.hasNextUnlockedLevel,
+      onContinue: () {
+        game.proceedAfterLevelCompleted();
+        if (!mounted) return;
+        setState(() {
+          hasStarted = true;
+          isPaused = false;
+          isMenuOpen = false;
+        });
+      },
+    );
+    if (!mounted) return;
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -115,8 +151,9 @@ class _GameScreenState extends State<GameScreen> {
         if (!hasStarted)
           StartOverlay(
             onStart: _startGame,
-            onOpenMonster: _openMonsterMenu,
+            onOpenShop: _openShop,
             onOpenLevels: _openLevelsMenu,
+            onExit: _exitApp,
           ),
         if (hasStarted)
           Positioned(
@@ -140,8 +177,9 @@ class _GameScreenState extends State<GameScreen> {
           PauseOverlay(
             onResume: _resumeFromMenu,
             onRestart: _restartFromMenu,
-            onOpenMonster: _openMonsterMenuFromPause,
+            onOpenShop: _openShopFromPause,
             onOpenLevels: _openLevelsMenuFromPause,
+            onExit: _exitApp,
           ),
       ],
     );
