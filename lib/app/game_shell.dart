@@ -23,15 +23,39 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   late final MonsterTapGame game;
+  StreamSubscription<User?>? _authSubscription;
   bool hasStarted = false;
   bool isPaused = false;
   bool isMenuOpen = false;
+  bool isSigningIn = false;
+  User? signedInUser;
+  String? authStatusMessage;
 
   @override
   void initState() {
     super.initState();
     game = MonsterTapGame();
     game.onLevelCompleted = _handleLevelCompleted;
+    if (Firebase.apps.isNotEmpty) {
+      signedInUser = FirebaseAuth.instance.currentUser;
+      _authSubscription = FirebaseAuth.instance.authStateChanges().listen((
+        user,
+      ) {
+        if (!mounted) return;
+        setState(() {
+          signedInUser = user;
+          authStatusMessage = user == null
+              ? 'Not signed in'
+              : 'Signed in as: ${user.email ?? user.uid}';
+        });
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   void _startGame() {
@@ -123,6 +147,65 @@ class _GameScreenState extends State<GameScreen> {
     await SystemNavigator.pop();
   }
 
+  Future<void> _signInWithGoogle() async {
+    if (isSigningIn) return;
+    if (kIsWeb && Firebase.apps.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Web Firebase is not configured. Add FIREBASE_WEB_* dart-define values.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      isSigningIn = true;
+    });
+
+    try {
+      final result = await AuthService.signInWithGoogle();
+      if (!mounted) return;
+
+      if (result == null) {
+        setState(() {
+          authStatusMessage = 'Google sign-in canceled.';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google sign in canceled.')),
+        );
+        return;
+      }
+
+      final email = result.user?.email;
+      setState(() {
+        signedInUser = result.user;
+        authStatusMessage =
+            email == null ? 'Signed in with Google.' : 'Signed in as: $email';
+      });
+      final message = email == null
+          ? 'Successfully signed in with Google.'
+          : 'Successfully signed in: $email';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        authStatusMessage = 'Google sign-in failed. Check browser console.';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Google sign-in failed: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSigningIn = false;
+        });
+      }
+    }
+  }
+
   Future<void> _handleLevelCompleted(LevelCompletionResult result) async {
     if (!mounted) return;
     await showLevelCompleteDialog(
@@ -153,6 +236,10 @@ class _GameScreenState extends State<GameScreen> {
             onStart: _startGame,
             onOpenShop: _openShop,
             onOpenLevels: _openLevelsMenu,
+            onGoogleSignIn: _signInWithGoogle,
+            isSigningIn: isSigningIn,
+            signedInEmail: signedInUser?.email,
+            authStatusMessage: authStatusMessage,
             onExit: _exitApp,
           ),
         if (hasStarted)

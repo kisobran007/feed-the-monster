@@ -2,9 +2,15 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame_audio/flame_audio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'firebase_options.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -15,6 +21,7 @@ part 'app/dialogs/shop_dialog.dart';
 part 'app/dialogs/level_complete_dialog.dart';
 part 'app/widgets/pause_overlay.dart';
 part 'app/widgets/start_overlay.dart';
+part 'app/services/auth_service.dart';
 part 'game/monster_tap_game.dart';
 part 'game/models/game_world.dart';
 part 'game/models/monster_character.dart';
@@ -30,6 +37,10 @@ part 'game/effects/tap_burst.dart';
 part 'game/components/objective_display.dart';
 part 'game/components/game_over_display.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const GameApp());
 }

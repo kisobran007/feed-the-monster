@@ -1,4 +1,4 @@
-package com.example.monster_tap_game
+package com.example.monster_munch
 
 import io.flutter.embedding.android.FlutterActivity
 

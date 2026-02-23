@@ -12,6 +12,9 @@ dependencies:
   flame: ^1.10.0
   flame_audio: ^2.11.14
   shared_preferences: ^2.5.4
+  firebase_core:
+  firebase_auth:
+  google_sign_in:
 
 dev_dependencies:
   flutter_test:

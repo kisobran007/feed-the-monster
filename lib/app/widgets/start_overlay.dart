@@ -7,6 +7,10 @@ class StartOverlay extends StatelessWidget {
   final VoidCallback onStart;
   final VoidCallback onOpenShop;
   final VoidCallback onOpenLevels;
+  final Future<void> Function() onGoogleSignIn;
+  final bool isSigningIn;
+  final String? signedInEmail;
+  final String? authStatusMessage;
   final Future<void> Function() onExit;
 
   const StartOverlay({
@@ -14,6 +18,10 @@ class StartOverlay extends StatelessWidget {
     required this.onStart,
     required this.onOpenShop,
     required this.onOpenLevels,
+    required this.onGoogleSignIn,
+    required this.isSigningIn,
+    required this.signedInEmail,
+    required this.authStatusMessage,
     required this.onExit,
   });
 
@@ -79,6 +87,38 @@ class StartOverlay extends StatelessWidget {
               child: const Text(
                 'Levels',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (authStatusMessage != null) ...[
+              SizedBox(
+                width: _buttonWidth,
+                child: Text(
+                  authStatusMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            ElevatedButton(
+              onPressed: (isSigningIn || signedInEmail != null)
+                  ? null
+                  : onGoogleSignIn,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFFFFF),
+                foregroundColor: const Color(0xFF222222),
+                minimumSize: const Size(_buttonWidth, _buttonHeight),
+                maximumSize: const Size(_buttonWidth, _buttonHeight),
+              ),
+              child: Text(
+                isSigningIn
+                    ? 'Signing In...'
+                    : (signedInEmail != null
+                        ? 'Google Signed In'
+                        : 'Sign in with Google'),
+                style:
+                    const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 14),
