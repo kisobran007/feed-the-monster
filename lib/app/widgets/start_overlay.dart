@@ -10,7 +10,6 @@ class StartOverlay extends StatelessWidget {
   final Future<void> Function() onGoogleSignIn;
   final bool isSigningIn;
   final String? signedInEmail;
-  final String? authStatusMessage;
   final Future<void> Function() onExit;
 
   const StartOverlay({
@@ -21,7 +20,6 @@ class StartOverlay extends StatelessWidget {
     required this.onGoogleSignIn,
     required this.isSigningIn,
     required this.signedInEmail,
-    required this.authStatusMessage,
     required this.onExit,
   });
 
@@ -90,17 +88,6 @@ class StartOverlay extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            if (authStatusMessage != null) ...[
-              SizedBox(
-                width: _buttonWidth,
-                child: Text(
-                  authStatusMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
             ElevatedButton(
               onPressed: (isSigningIn || signedInEmail != null)
                   ? null

@@ -29,7 +29,6 @@ class _GameScreenState extends State<GameScreen> {
   bool isMenuOpen = false;
   bool isSigningIn = false;
   User? signedInUser;
-  String? authStatusMessage;
 
   @override
   void initState() {
@@ -44,9 +43,6 @@ class _GameScreenState extends State<GameScreen> {
         if (!mounted) return;
         setState(() {
           signedInUser = user;
-          authStatusMessage = user == null
-              ? 'Not signed in'
-              : 'Signed in as: ${user.email ?? user.uid}';
         });
       });
     }
@@ -169,9 +165,6 @@ class _GameScreenState extends State<GameScreen> {
       if (!mounted) return;
 
       if (result == null) {
-        setState(() {
-          authStatusMessage = 'Google sign-in canceled.';
-        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Google sign in canceled.')),
         );
@@ -181,9 +174,9 @@ class _GameScreenState extends State<GameScreen> {
       final email = result.user?.email;
       setState(() {
         signedInUser = result.user;
-        authStatusMessage =
-            email == null ? 'Signed in with Google.' : 'Signed in as: $email';
       });
+      await game.loadCustomizationProgress();
+      if (!mounted) return;
       final message = email == null
           ? 'Successfully signed in with Google.'
           : 'Successfully signed in: $email';
@@ -191,9 +184,6 @@ class _GameScreenState extends State<GameScreen> {
           .showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        authStatusMessage = 'Google sign-in failed. Check browser console.';
-      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Google sign-in failed: $e')),
       );
@@ -239,7 +229,6 @@ class _GameScreenState extends State<GameScreen> {
             onGoogleSignIn: _signInWithGoogle,
             isSigningIn: isSigningIn,
             signedInEmail: signedInUser?.email,
-            authStatusMessage: authStatusMessage,
             onExit: _exitApp,
           ),
         if (hasStarted)
