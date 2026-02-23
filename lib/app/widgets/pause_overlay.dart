@@ -8,6 +8,7 @@ class PauseOverlay extends StatelessWidget {
   final VoidCallback onRestart;
   final Future<void> Function() onOpenShop;
   final Future<void> Function() onOpenLevels;
+  final Future<void> Function() onOpenSettings;
   final Future<void> Function() onExit;
 
   const PauseOverlay({
@@ -16,6 +17,7 @@ class PauseOverlay extends StatelessWidget {
     required this.onRestart,
     required this.onOpenShop,
     required this.onOpenLevels,
+    required this.onOpenSettings,
     required this.onExit,
   });
 
@@ -94,6 +96,20 @@ class PauseOverlay extends StatelessWidget {
               ),
               child: const Text(
                 'Levels',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 14),
+            ElevatedButton(
+              onPressed: onOpenSettings,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8E8E93),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(_buttonWidth, _buttonHeight),
+                maximumSize: const Size(_buttonWidth, _buttonHeight),
+              ),
+              child: const Text(
+                'Settings',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
             ),

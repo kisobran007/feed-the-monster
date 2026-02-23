@@ -7,9 +7,7 @@ class StartOverlay extends StatelessWidget {
   final VoidCallback onStart;
   final VoidCallback onOpenShop;
   final VoidCallback onOpenLevels;
-  final Future<void> Function() onGoogleSignIn;
-  final bool isSigningIn;
-  final String? signedInEmail;
+  final Future<void> Function() onOpenSettings;
   final Future<void> Function() onExit;
 
   const StartOverlay({
@@ -17,9 +15,7 @@ class StartOverlay extends StatelessWidget {
     required this.onStart,
     required this.onOpenShop,
     required this.onOpenLevels,
-    required this.onGoogleSignIn,
-    required this.isSigningIn,
-    required this.signedInEmail,
+    required this.onOpenSettings,
     required this.onExit,
   });
 
@@ -89,23 +85,16 @@ class StartOverlay extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             ElevatedButton(
-              onPressed: (isSigningIn || signedInEmail != null)
-                  ? null
-                  : onGoogleSignIn,
+              onPressed: onOpenSettings,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFFFFF),
-                foregroundColor: const Color(0xFF222222),
+                backgroundColor: const Color(0xFF8E8E93),
+                foregroundColor: Colors.white,
                 minimumSize: const Size(_buttonWidth, _buttonHeight),
                 maximumSize: const Size(_buttonWidth, _buttonHeight),
               ),
-              child: Text(
-                isSigningIn
-                    ? 'Signing In...'
-                    : (signedInEmail != null
-                        ? 'Google Signed In'
-                        : 'Sign in with Google'),
-                style:
-                    const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              child: const Text(
+                'Settings',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 14),
