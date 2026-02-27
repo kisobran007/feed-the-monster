@@ -75,8 +75,8 @@ class GameLevel {
     levelNumber: 1,
     timeLimitSeconds: 80,
     objectives: [
-      LevelObjective(type: ObjectiveType.feedHealthy, target: 15),
-      LevelObjective(type: ObjectiveType.throwJunk, target: 10),
+      LevelObjective(type: ObjectiveType.feedHealthy, target: 1),
+      LevelObjective(type: ObjectiveType.throwJunk, target: 1),
       LevelObjective(type: ObjectiveType.maxMistakes, target: 3),
     ],
   );
@@ -86,8 +86,8 @@ class GameLevel {
     timeLimitSeconds: 78,
     spawnRateMultiplier: 1.04,
     objectives: [
-      LevelObjective(type: ObjectiveType.feedHealthy, target: 20),
-      LevelObjective(type: ObjectiveType.throwJunk, target: 15),
+      LevelObjective(type: ObjectiveType.feedHealthy, target:1),
+      LevelObjective(type: ObjectiveType.throwJunk, target: 1),
       LevelObjective(type: ObjectiveType.maxMistakes, target: 2),
     ],
   );
@@ -98,8 +98,8 @@ class GameLevel {
     spawnRateMultiplier: 1.08,
     fallSpeedMultiplier: 1.03,
     objectives: [
-      LevelObjective(type: ObjectiveType.feedHealthy, target: 24),
-      LevelObjective(type: ObjectiveType.throwJunk, target: 18),
+      LevelObjective(type: ObjectiveType.feedHealthy, target: 2),
+      LevelObjective(type: ObjectiveType.throwJunk, target: 2),
       LevelObjective(type: ObjectiveType.maxMistakes, target: 2),
     ],
   );
