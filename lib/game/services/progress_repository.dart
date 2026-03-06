@@ -34,6 +34,33 @@ class GameProgressRepository {
   static const String _selectedMonsterIdKey = 'selected_monster_id';
   static const String _unlockedMonsterIdsKey = 'unlocked_monster_ids';
 
+  String _equippedKeyFor(String monsterId, AccessorySlot slot) {
+    return '$monsterId:${slot.name}';
+  }
+
+  bool _isSlotName(String value) {
+    for (final slot in AccessorySlot.values) {
+      if (slot.name == value) return true;
+    }
+    return false;
+  }
+
+  String _normalizeEquippedKey(String rawKey, AccessoryItem item) {
+    final parts = rawKey.split(':');
+    if (parts.length == 2) {
+      final first = parts[0];
+      final second = parts[1];
+      if (_isSlotName(second)) {
+        return _equippedKeyFor(first, item.slot);
+      }
+      if (GameLevel.fromId(first) != null) {
+        return _equippedKeyFor(second, item.slot);
+      }
+      return _equippedKeyFor(first, item.slot);
+    }
+    return _equippedKeyFor(rawKey, item.slot);
+  }
+
   Future<GameProgressData> load() async {
     final prefs = await SharedPreferences.getInstance();
     final localData = _loadFromPrefs(prefs);
@@ -183,8 +210,10 @@ class GameProgressRepository {
       if (decoded is Map<String, dynamic>) {
         decoded.forEach((key, value) {
           if (value is String) {
-            if (AccessoryCatalog.byId(value) != null) {
-              equippedAccessoryByTarget[key] = value;
+            final item = AccessoryCatalog.byId(value);
+            if (item != null) {
+              final normalizedKey = _normalizeEquippedKey(key, item);
+              equippedAccessoryByTarget[normalizedKey] = value;
             }
           }
         });
@@ -434,8 +463,10 @@ class GameProgressRepository {
     if (rawEquipped is Map<String, dynamic>) {
       rawEquipped.forEach((key, value) {
         if (value is String) {
-          if (AccessoryCatalog.byId(value) != null) {
-            equippedAccessoryByTarget[key] = value;
+          final item = AccessoryCatalog.byId(value);
+          if (item != null) {
+            final normalizedKey = _normalizeEquippedKey(key, item);
+            equippedAccessoryByTarget[normalizedKey] = value;
           }
         }
       });

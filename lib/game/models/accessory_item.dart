@@ -10,7 +10,6 @@ class AccessoryItem {
   final String id;
   final String label;
   final String monsterId;
-  final GameLevel level;
   final AccessorySlot slot;
   final int cost;
   final String assetPath;
@@ -19,7 +18,6 @@ class AccessoryItem {
     required this.id,
     required this.label,
     required this.monsterId,
-    required this.level,
     required this.slot,
     required this.cost,
     required this.assetPath,
@@ -45,7 +43,6 @@ class AccessoryCatalog {
   static AccessoryItem _item({
     required String label,
     required String monsterId,
-    required GameLevel level,
     required AccessorySlot slot,
     required int cost,
     required String assetPath,
@@ -58,7 +55,6 @@ class AccessoryCatalog {
       ),
       label: label,
       monsterId: monsterId,
-      level: level,
       slot: slot,
       cost: cost,
       assetPath: assetPath,
@@ -69,7 +65,6 @@ class AccessoryCatalog {
     _item(
       label: 'Cute Beanie Hat',
       monsterId: monsterMainId,
-      level: GameLevel.level1,
       slot: AccessorySlot.hat,
       cost: 150,
       assetPath: 'characters/monster_main/accessories/cute_beanie_hat.png',
@@ -84,11 +79,8 @@ class AccessoryCatalog {
   }
 
   static List<AccessoryItem> forMonster({
-    required GameLevel level,
     required String monsterId,
   }) {
-    return items
-        .where((item) => item.level == level && item.monsterId == monsterId)
-        .toList();
+    return items.where((item) => item.monsterId == monsterId).toList();
   }
 }

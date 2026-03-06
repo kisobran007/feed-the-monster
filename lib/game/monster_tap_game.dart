@@ -648,15 +648,10 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   void _applyMonsterAccessories() {
     if (!isLoaded || !monster.isLoaded) return;
-    final equippedIdForLevel = equippedAccessoryIdForTarget(
-      level: selectedLevel,
+    final equippedId = equippedAccessoryIdForTarget(
       monsterId: selectedMonsterId,
+      slot: AccessorySlot.hat,
     );
-    final equippedId = equippedIdForLevel ??
-        equippedAccessoryIdForTarget(
-          level: GameLevel.level1,
-          monsterId: selectedMonsterId,
-        );
     final equippedItem =
         equippedId == null ? null : AccessoryCatalog.byId(equippedId);
     final hatItem =
@@ -714,10 +709,9 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   List<AccessoryItem> accessoriesFor({
-    required GameLevel level,
     required String monsterId,
   }) {
-    return AccessoryCatalog.forMonster(level: level, monsterId: monsterId);
+    return AccessoryCatalog.forMonster(monsterId: monsterId);
   }
 
   bool isAccessoryUnlocked(String accessoryId) {
@@ -725,18 +719,22 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   }
 
   String? equippedAccessoryIdForTarget({
-    required GameLevel level,
     required String monsterId,
+    required AccessorySlot slot,
   }) {
-    return equippedAccessoryByTarget[_targetKey(level, monsterId)];
+    return equippedAccessoryByTarget[_targetKey(monsterId, slot)];
   }
 
   bool isAccessoryEquipped({
     required String accessoryId,
-    required GameLevel level,
     required String monsterId,
   }) {
-    return equippedAccessoryIdForTarget(level: level, monsterId: monsterId) ==
+    final item = AccessoryCatalog.byId(accessoryId);
+    if (item == null) return false;
+    return equippedAccessoryIdForTarget(
+          monsterId: monsterId,
+          slot: item.slot,
+        ) ==
         accessoryId;
   }
 
@@ -754,20 +752,21 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
 
   Future<void> setAccessoryEquipped(
     String accessoryId, {
-    required GameLevel level,
     required String monsterId,
   }) async {
     if (!isAccessoryUnlocked(accessoryId)) return;
-    equippedAccessoryByTarget[_targetKey(level, monsterId)] = accessoryId;
+    final item = AccessoryCatalog.byId(accessoryId);
+    if (item == null) return;
+    equippedAccessoryByTarget[_targetKey(monsterId, item.slot)] = accessoryId;
     await _saveCustomizationProgress();
     _applyMonsterAccessories();
   }
 
   Future<void> clearEquippedAccessory({
-    required GameLevel level,
     required String monsterId,
+    required AccessorySlot slot,
   }) async {
-    equippedAccessoryByTarget.remove(_targetKey(level, monsterId));
+    equippedAccessoryByTarget.remove(_targetKey(monsterId, slot));
     await _saveCustomizationProgress();
     _applyMonsterAccessories();
   }
@@ -827,8 +826,8 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     _applyMonsterAccessories();
   }
 
-  String _targetKey(GameLevel level, String monsterId) {
-    return '${level.id}:$monsterId';
+  String _targetKey(String monsterId, AccessorySlot slot) {
+    return '$monsterId:${slot.name}';
   }
 
   Future<void> _applySelectedMonster() async {

@@ -27,14 +27,13 @@ Future<void> showMonsterMenuDialog(
           final monsterSelected = game.isMonsterSelected(selectedMonster.id);
           final hatItems = game
               .accessoriesFor(
-                level: GameLevel.level1,
                 monsterId: selectedMonster.id,
               )
               .where((item) => item.slot == AccessorySlot.hat)
               .toList();
           final equippedHatId = game.equippedAccessoryIdForTarget(
-            level: GameLevel.level1,
             monsterId: selectedMonster.id,
+            slot: AccessorySlot.hat,
           );
           if (selectedHatId == null ||
               !hatItems.any((item) => item.id == selectedHatId)) {
@@ -51,7 +50,6 @@ Future<void> showMonsterMenuDialog(
           final hatEquipped = selectedHat != null
               ? game.isAccessoryEquipped(
                   accessoryId: selectedHat.id,
-                  level: GameLevel.level1,
                   monsterId: selectedMonster.id,
                 )
               : false;
@@ -371,7 +369,6 @@ Future<void> showMonsterMenuDialog(
                                             if (!ok) return;
                                             await game.setAccessoryEquipped(
                                               selectedHat.id,
-                                              level: GameLevel.level1,
                                               monsterId: selectedMonster.id,
                                             );
                                             await game.loadCustomizationProgress();
@@ -393,7 +390,6 @@ Future<void> showMonsterMenuDialog(
                                         : () async {
                                             await game.setAccessoryEquipped(
                                               selectedHat.id,
-                                              level: GameLevel.level1,
                                               monsterId: selectedMonster.id,
                                             );
                                             await game.loadCustomizationProgress();
@@ -412,8 +408,8 @@ Future<void> showMonsterMenuDialog(
                                     onPressed: hatEquipped
                                         ? () async {
                                             await game.clearEquippedAccessory(
-                                              level: GameLevel.level1,
                                               monsterId: selectedMonster.id,
+                                              slot: AccessorySlot.hat,
                                             );
                                             await game.loadCustomizationProgress();
                                             setDialogState(() {
