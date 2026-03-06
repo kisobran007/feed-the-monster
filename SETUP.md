@@ -70,6 +70,12 @@ Run on web:
 flutter run -d chrome
 ```
 
+For local web testing in Edge with persistent Google sign-in across runs:
+
+```bash
+flutter run -d edge --web-hostname=localhost --web-port=61078 --web-browser-flag="--user-data-dir=C:\path\to\edge-dev-profile"
+```
+
 ## 6. Common Web Asset Fix
 
 If web shows missing asset errors (404):

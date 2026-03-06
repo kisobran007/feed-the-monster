@@ -85,6 +85,12 @@ flutter pub get
 flutter run
 ```
 
+For local web testing in Edge with persistent Google sign-in across runs, use a fixed host/port and a dedicated browser profile directory:
+
+```bash
+flutter run -d edge --web-hostname=localhost --web-port=61078 --web-browser-flag="--user-data-dir=C:\path\to\edge-dev-profile"
+```
+
 For web, if assets seem stale after changes:
 
 ```bash

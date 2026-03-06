@@ -33,8 +33,6 @@ class GameProgressRepository {
       'equipped_accessory_by_target';
   static const String _selectedMonsterIdKey = 'selected_monster_id';
   static const String _unlockedMonsterIdsKey = 'unlocked_monster_ids';
-  static const String _world1HatUnlockedKey = 'skin_world1_hat_unlocked';
-  static const String _world1HatEquippedKey = 'skin_world1_hat_equipped';
 
   Future<GameProgressData> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -61,8 +59,6 @@ class GameProgressRepository {
     required Set<String> unlockedMonsterIds,
     required Set<String> unlockedAccessoryIds,
     required Map<String, String> equippedAccessoryByTarget,
-    required bool world1HatUnlocked,
-    required bool world1HatEquipped,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_coinsKey, totalCoins);
@@ -93,8 +89,6 @@ class GameProgressRepository {
       _equippedAccessoryByTargetKey,
       jsonEncode(equippedAccessoryByTarget),
     );
-    await prefs.setBool(_world1HatUnlockedKey, world1HatUnlocked);
-    await prefs.setBool(_world1HatEquippedKey, world1HatEquipped);
 
     await _saveCloudProgress(
       GameProgressData(
@@ -173,9 +167,14 @@ class GameProgressRepository {
       unlockedMonsterIds.add(MonsterCatalog.defaultMonsterId);
     }
 
-    final unlockedAccessoryIds =
-        (prefs.getStringList(_unlockedAccessoryIdsKey) ?? const <String>[])
-            .toSet();
+    final unlockedAccessoryIds = <String>{};
+    final rawUnlockedAccessoryIds =
+        prefs.getStringList(_unlockedAccessoryIdsKey) ?? const <String>[];
+    for (final rawId in rawUnlockedAccessoryIds) {
+      if (AccessoryCatalog.byId(rawId) != null) {
+        unlockedAccessoryIds.add(rawId);
+      }
+    }
 
     final equippedAccessoryByTarget = <String, String>{};
     final encodedEquipped = prefs.getString(_equippedAccessoryByTargetKey);
@@ -184,26 +183,11 @@ class GameProgressRepository {
       if (decoded is Map<String, dynamic>) {
         decoded.forEach((key, value) {
           if (value is String) {
-            var normalizedKey = key;
-            if (normalizedKey.startsWith('world1:')) {
-              normalizedKey = normalizedKey.replaceFirst('world1:', 'level1:');
-            } else if (normalizedKey.startsWith('world2:')) {
-              normalizedKey = normalizedKey.replaceFirst('world2:', 'level2:');
+            if (AccessoryCatalog.byId(value) != null) {
+              equippedAccessoryByTarget[key] = value;
             }
-            equippedAccessoryByTarget[normalizedKey] = value;
           }
         });
-      }
-    }
-
-    final legacyUnlocked = prefs.getBool(_world1HatUnlockedKey) ?? false;
-    final legacyEquipped = prefs.getBool(_world1HatEquippedKey) ?? false;
-    if (legacyUnlocked) {
-      unlockedAccessoryIds.add(AccessoryCatalog.legacyHatMigrationTargetId);
-      if (legacyEquipped) {
-        equippedAccessoryByTarget[
-                '${GameLevel.level1.id}:${AccessoryCatalog.monsterMainId}'] =
-            AccessoryCatalog.legacyHatMigrationTargetId;
       }
     }
 
@@ -223,13 +207,6 @@ class GameProgressRepository {
     SharedPreferences prefs, {
     required GameProgressData data,
   }) async {
-    final world1HatId = AccessoryCatalog.legacyHatMigrationTargetId;
-    final world1HatTarget =
-        '${GameLevel.level1.id}:${AccessoryCatalog.monsterMainId}';
-    final world1HatUnlocked = data.unlockedAccessoryIds.contains(world1HatId);
-    final world1HatEquipped =
-        data.equippedAccessoryByTarget[world1HatTarget] == world1HatId;
-
     await save(
       totalCoins: data.totalCoins,
       selectedLevel: data.selectedLevel,
@@ -239,8 +216,6 @@ class GameProgressRepository {
       unlockedMonsterIds: data.unlockedMonsterIds,
       unlockedAccessoryIds: data.unlockedAccessoryIds,
       equippedAccessoryByTarget: data.equippedAccessoryByTarget,
-      world1HatUnlocked: world1HatUnlocked,
-      world1HatEquipped: world1HatEquipped,
     );
   }
 
@@ -448,7 +423,9 @@ class GameProgressRepository {
     final rawAccessories = data['unlockedAccessoryIds'];
     if (rawAccessories is List) {
       for (final value in rawAccessories) {
-        if (value is String) unlockedAccessoryIds.add(value);
+        if (value is String && AccessoryCatalog.byId(value) != null) {
+          unlockedAccessoryIds.add(value);
+        }
       }
     }
 
@@ -457,7 +434,9 @@ class GameProgressRepository {
     if (rawEquipped is Map<String, dynamic>) {
       rawEquipped.forEach((key, value) {
         if (value is String) {
-          equippedAccessoryByTarget[key] = value;
+          if (AccessoryCatalog.byId(value) != null) {
+            equippedAccessoryByTarget[key] = value;
+          }
         }
       });
     }

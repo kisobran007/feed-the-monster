@@ -28,11 +28,9 @@ class AccessoryItem {
 
 class AccessoryCatalog {
   static const String monsterMainId = MonsterCatalog.monsterMainId;
-  static const String _legacySavedPartyHatId = 'legacy_monster_main_hat_party';
 
   static String _idFrom({
     required String monsterId,
-    required GameLevel level,
     required AccessorySlot slot,
     required String assetPath,
   }) {
@@ -41,7 +39,7 @@ class AccessoryCatalog {
         ? fileName.substring(0, fileName.lastIndexOf('.'))
         : fileName;
     final safeBase = baseName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
-    return '${level.id}_${monsterId}_${slot.name}_$safeBase';
+    return '${monsterId}_${slot.name}_$safeBase';
   }
 
   static AccessoryItem _item({
@@ -55,7 +53,6 @@ class AccessoryCatalog {
     return AccessoryItem(
       id: _idFrom(
         monsterId: monsterId,
-        level: level,
         slot: slot,
         assetPath: assetPath,
       ),
@@ -78,17 +75,6 @@ class AccessoryCatalog {
       assetPath: 'characters/monster_main/accessories/cute_beanie_hat.png',
     )
   ];
-
-  static String get legacyHatMigrationTargetId {
-    for (final item in items) {
-      if (item.monsterId == monsterMainId &&
-          item.level == GameLevel.level1 &&
-          item.slot == AccessorySlot.hat) {
-        return item.id;
-      }
-    }
-    return _legacySavedPartyHatId;
-  }
 
   static AccessoryItem? byId(String id) {
     for (final item in items) {

@@ -14,8 +14,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
   static const double goodItemChance = 0.65;
   static const double _dropZoneScale = 0.72;
 
-  static const String _legacyMonsterMainId = AccessoryCatalog.monsterMainId;
-
   int mistakes = 0;
   int totalCoins = 0;
   int lastRunCoinsEarned = 0;
@@ -645,8 +643,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
       unlockedMonsterIds: unlockedMonsterIds,
       unlockedAccessoryIds: unlockedAccessoryIds,
       equippedAccessoryByTarget: equippedAccessoryByTarget,
-      world1HatUnlocked: isWorld1HatUnlocked,
-      world1HatEquipped: isWorld1HatEquipped,
     );
   }
 
@@ -717,33 +713,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     );
   }
 
-  Future<bool> unlockWorld1Hat() async {
-    final ok = await unlockAccessory(AccessoryCatalog.legacyHatMigrationTargetId);
-    if (!ok) return false;
-    await setAccessoryEquipped(
-      AccessoryCatalog.legacyHatMigrationTargetId,
-      level: GameLevel.level1,
-      monsterId: _legacyMonsterMainId,
-    );
-    return true;
-  }
-
-  Future<void> setWorld1HatEquipped(bool equipped) async {
-    if (equipped) {
-      if (!isWorld1HatUnlocked) return;
-      await setAccessoryEquipped(
-        AccessoryCatalog.legacyHatMigrationTargetId,
-        level: GameLevel.level1,
-        monsterId: _legacyMonsterMainId,
-      );
-      return;
-    }
-    await clearEquippedAccessory(
-      level: GameLevel.level1,
-      monsterId: _legacyMonsterMainId,
-    );
-  }
-
   List<AccessoryItem> accessoriesFor({
     required GameLevel level,
     required String monsterId,
@@ -802,14 +771,6 @@ class MonsterTapGame extends FlameGame with TapCallbacks {
     await _saveCustomizationProgress();
     _applyMonsterAccessories();
   }
-
-  bool get isWorld1HatUnlocked =>
-      isAccessoryUnlocked(AccessoryCatalog.legacyHatMigrationTargetId);
-  bool get isWorld1HatEquipped => isAccessoryEquipped(
-        accessoryId: AccessoryCatalog.legacyHatMigrationTargetId,
-        level: GameLevel.level1,
-        monsterId: _legacyMonsterMainId,
-      );
 
   List<GameLevel> get availableLevels => GameLevel.values;
 
