@@ -11,6 +11,52 @@ String _shopSlotLabel(AccessorySlot slot) {
   }
 }
 
+enum _ShopPrimaryAction {
+  unlockMonster,
+  nextGroup,
+  nextSettings,
+  selectItem,
+  buyEquip,
+  equip,
+  unequip,
+}
+
+String _primaryActionLabel(_ShopPrimaryAction action, MonsterCharacter monster, AccessoryItem? item) {
+  switch (action) {
+    case _ShopPrimaryAction.unlockMonster:
+      return 'Unlock & Select (${monster.unlockCost})';
+    case _ShopPrimaryAction.nextGroup:
+      return 'Next: Group';
+    case _ShopPrimaryAction.nextSettings:
+      return 'Next: Settings';
+    case _ShopPrimaryAction.selectItem:
+      return 'Select Item';
+    case _ShopPrimaryAction.buyEquip:
+      return 'Buy & Equip (${item?.cost ?? 0})';
+    case _ShopPrimaryAction.equip:
+      return 'Equip';
+    case _ShopPrimaryAction.unequip:
+      return 'Unequip';
+  }
+}
+
+AccessoryItem? _accessoryById(List<AccessoryItem> items, String? id) {
+  if (id == null) return null;
+  for (final item in items) {
+    if (item.id == id) return item;
+  }
+  return null;
+}
+
+AccessorySlot _firstSlotWithItems(List<AccessoryItem> items) {
+  for (final slot in AccessorySlot.values) {
+    if (items.any((item) => item.slot == slot)) {
+      return slot;
+    }
+  }
+  return AccessorySlot.hat;
+}
+
 Future<void> showShopDialog(
   BuildContext context,
   MonsterTapGame game,
@@ -38,73 +84,121 @@ Future<void> showShopDialog(
             (monster) => monster.id == selectedMonsterId,
             orElse: () => monsters.first,
           );
-          final selectedMonsterUnlocked = game.isMonsterUnlocked(
-            selectedMonster.id,
-          );
-          final selectedMonsterEquipped = game.isMonsterSelected(
-            selectedMonster.id,
-          );
-          final monsterPreviewPath =
-              'assets/images/characters/${selectedMonster.assetFolder}/$previewState.png';
+          final selectedMonsterUnlocked = game.isMonsterUnlocked(selectedMonster.id);
+          final selectedMonsterEquipped = game.isMonsterSelected(selectedMonster.id);
 
-          final accessoriesForMonster = game.accessoriesFor(
-            monsterId: selectedMonster.id,
-          );
+          final allAccessories = game.accessoriesFor(monsterId: selectedMonster.id);
+          final slotAccessories = allAccessories
+              .where((item) => item.slot == selectedSlot)
+              .toList();
+
+          final selectedAccessory = _accessoryById(slotAccessories, selectedAccessoryId);
           final equippedAccessoryId = game.equippedAccessoryIdForTarget(
             monsterId: selectedMonster.id,
             slot: selectedSlot,
           );
-          final equippedAccessoryForSlot = equippedAccessoryId == null
-              ? null
-              : AccessoryCatalog.byId(equippedAccessoryId);
+          final equippedAccessory = AccessoryCatalog.byId(equippedAccessoryId ?? '');
+          final previewAccessory = selectedAccessory ?? equippedAccessory;
 
-          const availableSlots = AccessorySlot.values;
-          if (!availableSlots.contains(selectedSlot)) {
-            selectedSlot = AccessorySlot.hat;
-          }
+          final selectedAccessoryUnlocked =
+              selectedAccessory != null && game.isAccessoryUnlocked(selectedAccessory.id);
+          final selectedAccessoryEquipped =
+              selectedAccessory != null && game.isAccessoryEquipped(
+                accessoryId: selectedAccessory.id,
+                monsterId: selectedMonster.id,
+              );
 
-          if (selectedAccessoryId == null && equippedAccessoryForSlot != null) {
-            selectedSlot = equippedAccessoryForSlot.slot;
-          }
+          final primaryAction = stepIndex == 0
+              ? (!selectedMonsterUnlocked
+                    ? _ShopPrimaryAction.unlockMonster
+                    : _ShopPrimaryAction.nextGroup)
+              : stepIndex == 1
+                  ? _ShopPrimaryAction.nextSettings
+                  : selectedAccessory == null
+                      ? _ShopPrimaryAction.selectItem
+                      : !selectedAccessoryUnlocked
+                          ? _ShopPrimaryAction.buyEquip
+                          : selectedAccessoryEquipped
+                              ? _ShopPrimaryAction.unequip
+                              : _ShopPrimaryAction.equip;
 
-          final accessories = accessoriesForMonster
-              .where((item) => item.slot == selectedSlot)
-              .toList();
+          final primaryEnabled = switch (primaryAction) {
+            _ShopPrimaryAction.unlockMonster => coins >= selectedMonster.unlockCost,
+            _ShopPrimaryAction.nextGroup => true,
+            _ShopPrimaryAction.nextSettings => selectedMonsterUnlocked,
+            _ShopPrimaryAction.selectItem => false,
+            _ShopPrimaryAction.buyEquip => coins >= (selectedAccessory?.cost ?? 0),
+            _ShopPrimaryAction.equip => true,
+            _ShopPrimaryAction.unequip => true,
+          };
 
-          if (selectedAccessoryId == null ||
-              !accessories.any((item) => item.id == selectedAccessoryId)) {
-            if (equippedAccessoryForSlot != null &&
-                equippedAccessoryForSlot.slot == selectedSlot &&
-                accessories.any((item) => item.id == equippedAccessoryForSlot.id)) {
-              selectedAccessoryId = equippedAccessoryForSlot.id;
-            } else {
-              selectedAccessoryId = null;
+          Future<void> runPrimaryAction() async {
+            switch (primaryAction) {
+              case _ShopPrimaryAction.unlockMonster:
+                final ok = await game.unlockMonster(selectedMonster.id);
+                if (!ok || !context.mounted) return;
+                await game.selectMonster(selectedMonster.id);
+                if (!context.mounted) return;
+                setDialogState(() {
+                  coins = game.totalCoins;
+                  selectedMonsterId = game.selectedMonsterId;
+                  selectedSlot = _firstSlotWithItems(allAccessories);
+                  selectedAccessoryId = null;
+                  stepIndex = 1;
+                });
+                break;
+              case _ShopPrimaryAction.nextGroup:
+                setDialogState(() {
+                  selectedSlot = _firstSlotWithItems(allAccessories);
+                  selectedAccessoryId = null;
+                  stepIndex = 1;
+                });
+                break;
+              case _ShopPrimaryAction.nextSettings:
+                setDialogState(() {
+                  stepIndex = 2;
+                });
+                break;
+              case _ShopPrimaryAction.selectItem:
+                break;
+              case _ShopPrimaryAction.buyEquip:
+                final item = selectedAccessory;
+                if (item == null) return;
+                final ok = await game.unlockAccessory(item.id);
+                if (!ok || !context.mounted) return;
+                await game.setAccessoryEquipped(item.id, monsterId: selectedMonster.id);
+                if (!context.mounted) return;
+                setDialogState(() {
+                  coins = game.totalCoins;
+                });
+                break;
+              case _ShopPrimaryAction.equip:
+                final item = selectedAccessory;
+                if (item == null) return;
+                await game.setAccessoryEquipped(item.id, monsterId: selectedMonster.id);
+                if (!context.mounted) return;
+                setDialogState(() {
+                  coins = game.totalCoins;
+                });
+                break;
+              case _ShopPrimaryAction.unequip:
+                await game.clearEquippedAccessory(
+                  monsterId: selectedMonster.id,
+                  slot: selectedSlot,
+                );
+                if (!context.mounted) return;
+                setDialogState(() {
+                  selectedAccessoryId = null;
+                });
+                break;
             }
           }
 
-          final selectedAccessory = selectedAccessoryId == null
-              ? null
-              : accessories.firstWhere((item) => item.id == selectedAccessoryId);
-          final selectedAccessoryUnlocked = selectedAccessory != null
-              ? game.isAccessoryUnlocked(selectedAccessory.id)
-              : false;
-          final selectedAccessoryEquipped = selectedAccessory != null
-              ? game.isAccessoryEquipped(
-                  accessoryId: selectedAccessory.id,
-                  monsterId: selectedMonster.id,
-                )
-              : false;
-          final previewAccessory = selectedAccessory ?? equippedAccessoryForSlot;
-          final selectedAccessoryPreviewPath = previewAccessory == null
-              ? null
-              : 'assets/images/${previewAccessory.assetPath}';
-
           final media = MediaQuery.of(context);
-          final contentHeight = media.size.height * 0.94;
 
           return SafeArea(
             child: SizedBox(
-              height: contentHeight,
+              height: media.size.height * 0.94,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                 child: Column(
@@ -128,7 +222,6 @@ Future<void> showShopDialog(
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
                     Text(
                       'Coins: $coins',
                       style: const TextStyle(
@@ -149,15 +242,17 @@ Future<void> showShopDialog(
                         alignment: Alignment.center,
                         children: [
                           Positioned.fill(
-                            child: Image.asset(monsterPreviewPath, fit: BoxFit.contain),
+                            child: Image.asset(
+                              'assets/images/characters/${selectedMonster.assetFolder}/$previewState.png',
+                              fit: BoxFit.contain,
+                            ),
                           ),
-                          if (showAccessoryPreview &&
-                              selectedAccessoryPreviewPath != null)
+                          if (showAccessoryPreview && previewAccessory != null)
                             Positioned.fill(
                               child: Opacity(
                                 opacity: 0.95,
                                 child: Image.asset(
-                                  selectedAccessoryPreviewPath,
+                                  'assets/images/${previewAccessory.assetPath}',
                                   fit: BoxFit.contain,
                                 ),
                               ),
@@ -170,56 +265,34 @@ Future<void> showShopDialog(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        ChoiceChip(
-                          label: const Text('Idle'),
-                          selected: previewState == 'idle',
-                          onSelected: (_) =>
-                              setDialogState(() => previewState = 'idle'),
-                        ),
-                        ChoiceChip(
-                          label: const Text('Happy'),
-                          selected: previewState == 'happy',
-                          onSelected: (_) =>
-                              setDialogState(() => previewState = 'happy'),
-                        ),
-                        ChoiceChip(
-                          label: const Text('Sad'),
-                          selected: previewState == 'sad',
-                          onSelected: (_) =>
-                              setDialogState(() => previewState = 'sad'),
-                        ),
+                        for (final state in const ['idle', 'happy', 'sad'])
+                          ChoiceChip(
+                            label: Text(state[0].toUpperCase() + state.substring(1)),
+                            selected: previewState == state,
+                            onSelected: (_) => setDialogState(() {
+                              previewState = state;
+                            }),
+                          ),
                         FilterChip(
                           label: const Text('Preview'),
                           selected: showAccessoryPreview,
-                          onSelected: (value) =>
-                              setDialogState(() => showAccessoryPreview = value),
+                          onSelected: (value) => setDialogState(() {
+                            showAccessoryPreview = value;
+                          }),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Row(
                       children: List.generate(3, (index) {
-                        final active = stepIndex == index;
-                        final title = index == 0
-                            ? '1. Monster'
-                            : index == 1
-                                ? '2. Group'
-                                : '3. Settings';
-                        final canTap = index == 0 ||
-                            (index == 1 && selectedMonsterUnlocked) ||
-                            (index == 2 && selectedMonsterUnlocked);
+                        final labels = ['1. Monster', '2. Group', '3. Settings'];
+                        final canTap = index == 0 || selectedMonsterUnlocked;
                         return Expanded(
                           child: Padding(
-                            padding: EdgeInsets.only(
-                              left: index == 0 ? 0 : 4,
-                              right: index == 2 ? 0 : 4,
-                            ),
+                            padding: EdgeInsets.only(left: index == 0 ? 0 : 4),
                             child: ChoiceChip(
-                              label: Text(
-                                title,
-                                textAlign: TextAlign.center,
-                              ),
-                              selected: active,
+                              label: Text(labels[index], textAlign: TextAlign.center),
+                              selected: stepIndex == index,
                               onSelected: canTap
                                   ? (_) => setDialogState(() {
                                       stepIndex = index;
@@ -247,15 +320,18 @@ Future<void> showShopDialog(
                               ),
                               const SizedBox(height: 8),
                               ...monsters.map((monster) {
+                                final selected = selectedMonsterId == monster.id;
                                 final unlocked = game.isMonsterUnlocked(monster.id);
                                 final equipped = game.isMonsterSelected(monster.id);
-                                final selected = selectedMonsterId == monster.id;
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 8),
                                   child: ListTile(
                                     onTap: () {
                                       setDialogState(() {
                                         selectedMonsterId = monster.id;
+                                        selectedSlot = _firstSlotWithItems(
+                                          game.accessoriesFor(monsterId: monster.id),
+                                        );
                                         selectedAccessoryId = null;
                                       });
                                     },
@@ -308,8 +384,8 @@ Future<void> showShopDialog(
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
-                                children: availableSlots.map((slot) {
-                                  final count = accessoriesForMonster
+                                children: AccessorySlot.values.map((slot) {
+                                  final count = allAccessories
                                       .where((item) => item.slot == slot)
                                       .length;
                                   return ChoiceChip(
@@ -324,13 +400,6 @@ Future<void> showShopDialog(
                                   );
                                 }).toList(),
                               ),
-                              const SizedBox(height: 12),
-                              Text(
-                                accessories.isEmpty
-                                    ? 'No ${_shopSlotLabel(selectedSlot).toLowerCase()} available for this monster yet.'
-                                    : 'Tap Next to open ${_shopSlotLabel(selectedSlot)} settings.',
-                                style: const TextStyle(color: Colors.white70),
-                              ),
                             ],
                             if (stepIndex == 2) ...[
                               Text(
@@ -342,18 +411,18 @@ Future<void> showShopDialog(
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              if (accessories.isEmpty)
+                              if (slotAccessories.isEmpty)
                                 Text(
                                   'No ${_shopSlotLabel(selectedSlot).toLowerCase()} for this monster yet.',
                                   style: const TextStyle(color: Colors.white70),
                                 ),
-                              ...accessories.map((item) {
+                              ...slotAccessories.map((item) {
+                                final selected = selectedAccessoryId == item.id;
                                 final unlocked = game.isAccessoryUnlocked(item.id);
                                 final equipped = game.isAccessoryEquipped(
                                   accessoryId: item.id,
                                   monsterId: selectedMonster.id,
                                 );
-                                final selected = selectedAccessoryId == item.id;
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 8),
                                   child: ListTile(
@@ -413,121 +482,15 @@ Future<void> showShopDialog(
                           ),
                         if (stepIndex > 0) const SizedBox(width: 10),
                         Expanded(
-                          child: Builder(
-                            builder: (context) {
-                              if (stepIndex == 0) {
-                                if (!selectedMonsterUnlocked) {
-                                  return ElevatedButton(
-                                    onPressed: coins >= selectedMonster.unlockCost
-                                        ? () async {
-                                            final ok = await game.unlockMonster(
-                                              selectedMonster.id,
-                                            );
-                                            if (!ok || !context.mounted) return;
-                                            await game.selectMonster(
-                                              selectedMonster.id,
-                                            );
-                                            if (!context.mounted) return;
-                                            setDialogState(() {
-                                              coins = game.totalCoins;
-                                              selectedMonsterId =
-                                                  game.selectedMonsterId;
-                                              stepIndex = 1;
-                                            });
-                                          }
-                                        : null,
-                                    child: Text(
-                                      'Unlock & Select (${selectedMonster.unlockCost})',
-                                    ),
-                                  );
-                                }
-                                return ElevatedButton(
-                                  onPressed: () => setDialogState(() {
-                                    final firstSlotWithItems =
-                                        AccessorySlot.values.where((slot) {
-                                      return accessoriesForMonster.any(
-                                        (item) => item.slot == slot,
-                                      );
-                                    });
-                                    selectedSlot = firstSlotWithItems.isEmpty
-                                        ? AccessorySlot.hat
-                                        : firstSlotWithItems.first;
-                                    selectedAccessoryId = null;
-                                    stepIndex = 1;
-                                  }),
-                                  child: const Text('Next: Group'),
-                                );
-                              }
-
-                              if (stepIndex == 1) {
-                                return ElevatedButton(
-                                  onPressed: selectedMonsterUnlocked
-                                      ? () => setDialogState(() {
-                                          stepIndex = 2;
-                                        })
-                                      : null,
-                                  child: const Text('Next: Settings'),
-                                );
-                              }
-
-                              if (selectedAccessory == null) {
-                                return const ElevatedButton(
-                                  onPressed: null,
-                                  child: Text('Select Item'),
-                                );
-                              }
-                              if (!selectedAccessoryUnlocked) {
-                                return ElevatedButton(
-                                  onPressed: coins >= selectedAccessory.cost
-                                      ? () async {
-                                          final ok = await game.unlockAccessory(
-                                            selectedAccessory.id,
-                                          );
-                                          if (!ok || !context.mounted) return;
-                                          await game.setAccessoryEquipped(
-                                            selectedAccessory.id,
-                                            monsterId: selectedMonster.id,
-                                          );
-                                          if (!context.mounted) return;
-                                          setDialogState(() {
-                                            coins = game.totalCoins;
-                                          });
-                                        }
-                                      : null,
-                                  child: Text(
-                                    'Buy & Equip (${selectedAccessory.cost})',
-                                  ),
-                                );
-                              }
-                              if (!selectedAccessoryEquipped) {
-                                return ElevatedButton(
-                                  onPressed: () async {
-                                    await game.setAccessoryEquipped(
-                                      selectedAccessory.id,
-                                      monsterId: selectedMonster.id,
-                                    );
-                                    if (!context.mounted) return;
-                                    setDialogState(() {
-                                      coins = game.totalCoins;
-                                    });
-                                  },
-                                  child: const Text('Equip'),
-                                );
-                              }
-                              return ElevatedButton(
-                                onPressed: () async {
-                                  await game.clearEquippedAccessory(
-                                    monsterId: selectedMonster.id,
-                                    slot: selectedSlot,
-                                  );
-                                  if (!context.mounted) return;
-                                  setDialogState(() {
-                                    selectedAccessoryId = null;
-                                  });
-                                },
-                                child: const Text('Unequip'),
-                              );
-                            },
+                          child: ElevatedButton(
+                            onPressed: primaryEnabled ? runPrimaryAction : null,
+                            child: Text(
+                              _primaryActionLabel(
+                                primaryAction,
+                                selectedMonster,
+                                selectedAccessory,
+                              ),
+                            ),
                           ),
                         ),
                       ],
